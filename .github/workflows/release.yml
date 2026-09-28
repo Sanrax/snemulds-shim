@@ -1,0 +1,24 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    container: skylyrac/blocksds:slim-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build shim
+        run: make
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            snemulds-shim.nds
+            snemulds-shim.ini
+          fail_on_unmatched_files: true

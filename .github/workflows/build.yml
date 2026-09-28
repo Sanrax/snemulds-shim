@@ -1,0 +1,24 @@
+name: Build
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: skylyrac/blocksds:slim-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build shim
+        run: make
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: snemulds-shim-${{ github.sha }}
+          path: |
+            snemulds-shim.nds
+            snemulds-shim.ini
+          if-no-files-found: error
