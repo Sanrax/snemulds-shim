@@ -12,6 +12,10 @@ jobs:
     container: skylyrac/blocksds:slim-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Python
+         run: |
+          apt-get update
+          apt-get install -y --no-install-recommends python3
       - name: Build shim
         run: make
       - name: Upload build artifact
