@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+NAME ?= snemulds-shim
+GAME_TITLE := SNEmulDS Launcher
+GAME_SUBTITLE := 0.6d + 0.6a / DS + DSi
+GAME_AUTHOR := Built with BlocksDS
+SOURCEDIRS := source
+INCLUDEDIRS := include
+BINDIRS ?= data
+LIBS := -lnds9
+NDSTOOL_ARGS := -uc 2
+include $(BLOCKSDS)/sys/default_makefiles/rom_arm9/Makefile

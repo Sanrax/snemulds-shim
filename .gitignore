@@ -1,0 +1,8 @@
+# Generated build products and local release output
+/build/
+/data/load.bin
+/snemulds-shim.nds
+/SHA256SUMS
+/*.zip
+*.pyc
+__pycache__/
