@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     container: skylyrac/blocksds:slim-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Python
         run: |
           apt-get update
