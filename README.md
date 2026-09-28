@@ -64,7 +64,7 @@ default = auto
 
 ## Build
 
-1. Install [BlocksDS.](https://blocksds.skylyrac.net/docs/setup/)
+1. Install [BlocksDS](https://blocksds.skylyrac.net/docs/setup/) and [Python 3.](https://www.python.org/downloads/)
 
 1. `git clone` this repository
 
