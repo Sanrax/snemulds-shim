@@ -23,8 +23,9 @@ ARM9 sector reads and writes through the DSpico driver.
   `snemulds-shim.ini` sits beside the shim; relative paths are resolved from
   that directory.
 - Keep user-visible controls, labels, and help text consistent with the
-  behavior in `README.md`. Update the README when behavior, supported paths,
-  or validation changes.
+  behavior in `README.md`. Before changing `README.md`, tell the user what
+  you plan to change and why. Update it when behavior, supported paths, or
+  validation changes, after giving that notice.
 - Do not hand-edit generated artifacts. `patches/build.py` generates
   `include/twl_input_generated.h`, and `patches/ntr_codec_table.py` generates
   `include/ntr_codec_generated.h`. `make patches` runs both generators; `make`
@@ -81,8 +82,10 @@ python3 tests/twl_io_emulation.py /path/to/stock/SNEmulDS.srl /path/to/DSpico.dl
 emulation do not prove behavior on a console or measure real audio, touch, or
 frame timing. Report hardware testing only when it was actually performed;
 the user has confirmed v0.11-rc1 launch behavior on DSpico/DSi and DS Lite,
-while v0.13's UI and behavior changes have software checks but no new physical
-hardware check in this workspace.
+and has confirmed that the language patch allows English to be forced on a
+Japanese DSi. This language confirmation does not cover other v0.13 UI or
+behavior changes, which have software checks but no new physical hardware
+check in this workspace.
 
 ## Packaging
 
