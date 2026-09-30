@@ -22,10 +22,11 @@ ARM9 sector reads and writes through the DSpico driver.
 - Prefer focused changes and preserve existing INI compatibility. The
   `snemulds-shim.ini` sits beside the shim; relative paths are resolved from
   that directory.
-- Keep user-visible controls, labels, and help text consistent with the
-  behavior in `README.md`. Before changing `README.md`, tell the user what
-  you plan to change and why. Update it when behavior, supported paths, or
-  validation changes, after giving that notice.
+- Do not touch `README.md` without the user's knowledge. Before any edit,
+  tell the user what you plan to change and why. Keep user-visible controls,
+  labels, and help text consistent with the behavior in `README.md`. Update it
+  when behavior, supported paths, or validation changes, after giving that
+  notice.
 - Do not hand-edit generated artifacts. `patches/build.py` generates
   `include/twl_input_generated.h`, and `patches/ntr_codec_table.py` generates
   `include/ntr_codec_generated.h`. `make patches` runs both generators; `make`
