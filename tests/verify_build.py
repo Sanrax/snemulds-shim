@@ -26,11 +26,12 @@ for name, pos in [('ARM9', 0x20), ('ARM7', 0x30), ('ARM9i', 0x1c0), ('ARM7i', 0x
     assert off >= 0x1000 and size and off + size <= len(b), name
     print(f'{name}: {size} bytes, destination 0x{dst:08x}')
 loader = (root / 'data/load.bin').read_bytes()
-h = struct.unpack_from('<12I', loader)
+h = struct.unpack_from('<13I', loader)
 args_offset, dldi_offset = h[4], h[6]
 assert h[9] == 0, 'Force-DLDI must be opt-in per launch'
 assert h[10] == 0, 'Direct ARM9 I/O must be opt-in per launch'
 assert h[11] == 0, 'NTR downgrade must be opt-in per launch'
+assert h[12] == 0, 'Language patch must be opt-in per launch'
 assert len(loader) <= args_offset and args_offset + 236 <= 0x1f000
 assert dldi_offset + (1 << loader[dldi_offset + 15]) <= len(loader)
 assert loader in b, 'Built ROM must contain the current loader'

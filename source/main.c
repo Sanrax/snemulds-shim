@@ -84,7 +84,7 @@ static const char *launch(const App *app, ShimMode mode)
     if (error) return error;
     if (!file_ok(target)) return "Emulator missing or unreadable.\nCheck its path on the R info\npage and in snemulds-shim.ini.";
     const bool twl = shim_target_twl(mode, app->dsi);
-    error = chainload_check(target, twl);
+    error = chainload_check(target, twl, mode != SHIM_LEGACY);
     if (error) return error;
     unsigned char wire[SHIM_WIRE_CAP];
     size_t length = 0;
@@ -105,7 +105,7 @@ static const char *launch(const App *app, ShimMode mode)
     ui_text(5, 1, UI_TEXT, mode_name(mode));
     if (mode == SHIM_LEGACY && *app->rom)
         ui_wrap(8, 3, UI_MUTED, "ROM folder set.\nSelect the game inside 0.6a.");
-    return chainload(target, wire, length, twl);
+    return chainload(target, wire, length, twl, mode != SHIM_LEGACY);
 }
 
 static void menu(const App *app, const ShimMode *modes, unsigned count, unsigned row,
@@ -158,6 +158,8 @@ static void info(const App *app, ShimMode mode, unsigned page, unsigned scroll)
         ui_text(9, 1, UI_TEXT, mode == SHIM_LEGACY ? "SNEmulDS 0.6a" : "SNEmulDS 0.6d");
         ui_text(10, 1, UI_TEXT, mode == SHIM_AUTO ?
             (app->dsi ? "Auto -> DSi mode (TWL)" : "Auto -> DS mode (NTR)") : "DS mode (NTR)");
+        if (mode != SHIM_LEGACY)
+            ui_text(11, 1, UI_GOOD, "CFG language fix in RAM");
         if (shim_target_twl(mode, app->dsi))
             ui_text(12, 1, UI_GOOD, "TWL touchscreen + audio fixes");
         ui_section(14, "AUTOBOOT");

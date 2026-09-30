@@ -8,11 +8,13 @@
 #include "load_bin.h"
 #include "shim.h"
 #include "tgds_io.h"
+#include "tgds_language.h"
 
 /* Header ABI of devkitPro/nds-bootloader at 69cea3c5. */
 typedef struct {
     u32 branch, cluster, init_disc, patch_dldi, arg_offset, arg_size;
-    u32 dldi_offset, dsi_sd, dsi_mode, force_tgds_dldi, dspico_arm9_io, force_ntr;
+    u32 dldi_offset, dsi_sd, dsi_mode, force_tgds_dldi, dspico_arm9_io, force_ntr,
+        patch_language;
 } LoaderHeader;
 
 static u32 read32(const unsigned char *p)
@@ -21,7 +23,7 @@ static u32 read32(const unsigned char *p)
 }
 
 static const char *check_nds(const char *path, u32 *cluster, bool twl, bool force_tgds_dldi,
-                             bool dspico_arm9_io)
+                             bool dspico_arm9_io, bool patch_language)
 {
     struct stat st;
     if (stat(path, &st) || !S_ISREG(st.st_mode) || st.st_size < 512 ||
@@ -65,23 +67,30 @@ static const char *check_nds(const char *path, u32 *cluster, bool twl, bool forc
             return "Unsupported TWL input code.\nUse stock SnemulDS 0.6d SRL.";
         }
     }
-    if (dspico_arm9_io) {
+    if (dspico_arm9_io || patch_language) {
         if (read32(h + 0x28) != 0x02000000) {
             fclose(f);
-            return "Unsupported TWL ARM9 load address.";
+            return "Unsupported 0.6d ARM9 load address.";
         }
         u32 offset = read32(h + 0x20), size = read32(h + 0x2C);
         unsigned char *arm9 = malloc(size);
         if (!arm9) {
             fclose(f);
-            return "Not enough memory to inspect TWL ARM9.";
+            return "Not enough memory to inspect 0.6d ARM9.";
         }
-        bool ok = !fseek(f, offset, SEEK_SET) && fread(arm9, 1, size, f) == size &&
-                  shim_tgds_dspico_io(arm9, size, false);
-        free(arm9);
+        bool ok = !fseek(f, offset, SEEK_SET) && fread(arm9, 1, size, f) == size;
         if (!ok) {
+            free(arm9);
             fclose(f);
-            return "Unsupported TWL ARM9 build.\nUse stock SnemulDS 0.6d SRL.";
+            return "Cannot inspect the 0.6d ARM9 binary.";
+        }
+        bool language_ok = !patch_language || shim_tgds_language_patch(arm9, size, false);
+        bool io_ok = !dspico_arm9_io || shim_tgds_dspico_io(arm9, size, false);
+        free(arm9);
+        if (!language_ok || !io_ok) {
+            fclose(f);
+            return !language_ok ? "Unsupported 0.6d language code.\nUse stock SNEmulDS 0.6d." :
+                   "Unsupported TWL ARM9 build.\nUse stock SNEmulDS 0.6d SRL.";
         }
     }
     fclose(f);
@@ -89,7 +98,7 @@ static const char *check_nds(const char *path, u32 *cluster, bool twl, bool forc
     return NULL;
 }
 
-const char *chainload_check(const char *filename, bool twl)
+const char *chainload_check(const char *filename, bool twl, bool patch_language)
 {
     const bool dsi = isDSiMode(), sd = !strncmp(filename, "sd:/", 4);
     if (twl && !dsi) return "A TWL binary cannot run in DS mode.";
@@ -100,10 +109,11 @@ const char *chainload_check(const char *filename, bool twl)
     const bool pico = force && dldiIsValid(io_dldi_data) &&
                       io_dldi_data->ioInterface.ioType == 0x4F434950u;
     u32 cluster;
-    return check_nds(filename, &cluster, twl, force, pico);
+    return check_nds(filename, &cluster, twl, force, pico, patch_language);
 }
 
-const char *chainload(const char *filename, const unsigned char *args, size_t length, bool twl)
+const char *chainload(const char *filename, const unsigned char *args, size_t length,
+                      bool twl, bool patch_language)
 {
     u32 cluster;
     const bool dsi = isDSiMode();
@@ -115,7 +125,8 @@ const char *chainload(const char *filename, const unsigned char *args, size_t le
     if (sd && !twl) return "NTR requires flashcart storage.";
     if (dsi && !(REG_SCFG_EXT & (1u << 31)))
         return "TGDS needs unlocked SCFG.\nUse a compatible DSi launcher.";
-    const char *error = check_nds(filename, &cluster, twl, force_tgds_dldi, dspico_arm9_io);
+    const char *error = check_nds(filename, &cluster, twl, force_tgds_dldi,
+                                  dspico_arm9_io, patch_language);
     if (error) return error;
     if (length > SHIM_WIRE_CAP || (length && !args)) return "Invalid argument length.";
     if (load_bin_size < sizeof(LoaderHeader)) return "Invalid embedded loader.";
@@ -162,6 +173,7 @@ const char *chainload(const char *filename, const unsigned char *args, size_t le
     hdr->force_ntr = dsi && !twl;
     hdr->force_tgds_dldi = force_tgds_dldi;
     hdr->dspico_arm9_io = dspico_arm9_io;
+    hdr->patch_language = patch_language;
     hdr->arg_offset = arg_offset;
     hdr->arg_size = length;
     memcpy(image + arg_offset, args, length);

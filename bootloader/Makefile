@@ -12,7 +12,7 @@ CFLAGS := -std=gnu11 -Os -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare \
  -mcpu=arm7tdmi -mthumb -DARM7 -ffreestanding -fno-builtin \
  -fno-strict-aliasing -I$(BLOCKSDS)/libs/libnds/include -I$(UP)/source -I../include
 ASFLAGS := -mcpu=arm7tdmi -x assembler-with-cpp -I$(BUILD)
-OBJS := $(addprefix $(BUILD)/,boot.o sdmmc.o bios.o fat.o dldi_patcher.o load_crt0.o io_dldi.o arm7clear.o arm9mpu_reset.o arm9_stages.o support.o tgds_io.o twl_handoff.o ntr_handoff.o)
+OBJS := $(addprefix $(BUILD)/,boot.o sdmmc.o bios.o fat.o dldi_patcher.o load_crt0.o io_dldi.o arm7clear.o arm9mpu_reset.o arm9_stages.o support.o tgds_io.o tgds_patch.o twl_handoff.o ntr_handoff.o)
 .DEFAULT_GOAL := all
 .PHONY: all clean
 all: $(OUTPUT)
@@ -29,6 +29,8 @@ $(BUILD)/twl_handoff.o: $(HANDOFF) | $(BUILD)
 $(BUILD)/ntr_handoff.o: ntr_handoff.c ../include/ntr_codec_generated.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/tgds_io.o: ../source/tgds_io.c ../include/tgds_io.h ../include/twl_input_generated.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+$(BUILD)/tgds_patch.o: ../source/tgds_patch.c ../include/tgds_language.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/arm9_stages.o: arm9_stages.s | $(BUILD)
 	$(CC) -mcpu=arm946e-s -c $< -o $@

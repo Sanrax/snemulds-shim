@@ -52,6 +52,7 @@ Helpful information:
 #include "card.h"
 #include "boot.h"
 #include "tgds_io.h"
+#include "tgds_language.h"
 
 void arm7clearRAM();
 void shim_twl_audio_prepare(void);
@@ -79,6 +80,7 @@ extern unsigned long dsiMode;
 extern unsigned long forceTGDSDLDI;
 extern unsigned long dspicoARM9IO;
 extern unsigned long forceNTR;
+extern unsigned long patchTGDSLanguage;
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Firmware stuff
@@ -436,6 +438,10 @@ int main (void) {
 		*(vu32*)0x0400405C = 0;
 	}
 	loadBinary_ARM7(fileCluster);
+	if (patchTGDSLanguage &&
+	    !shim_tgds_language_patch((void*)((u32*)NDS_HEAD)[0x0A],
+	                               ((u32*)NDS_HEAD)[0x0B], true))
+		return -1;
 	if (dsiMode &&
 	    !shim_tgds_twl_touch((void*)((u32*)NDS_HEAD)[0x0E], ((u32*)NDS_HEAD)[0x0F], true))
 		return -1;
