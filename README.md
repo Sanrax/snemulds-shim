@@ -1,6 +1,6 @@
 # SNEmulDS Launcher Shim
 
-Coto's SNEmulDS 0.6d fork is compiled with a custom toolchain, ToolchainGenericDS. TGDS handles argv differently from BlocksDS and DevkitPro. This shim converts regular argv calls to TGDS's argv format before chainloading SNEmulDS. For both NTR and TWL 0.6d, it also patches the loaded ARM9 code in memory so the GUI language selected in `snemul.cfg` survives the emulator's later display switches. The emulator file on the card is not changed.
+Coto's SNEmulDS 0.6d fork is compiled with a custom toolchain, ToolchainGenericDS. Unfortunately, TGDS handles argv differently from BlocksDS and DevkitPro. This shim acts as a translation layer to to convert regular argv calls to TGDS's argv standard, by chainloading SNEmulDS with TGDS-formatted argv after the shim itself was called with standard argv arguments.
 
 This shim also does in-memory patching on the SRL (DSi-mode) release of SNEmulDS 0.6d. Unfortunately, the official SRL release of 0.6d contains a touchscreen bug that stops it from registering inputs, even when directly launched via Unlaunch's file menu. A patch for this issue is applied when running the SRL from DSpico or console SD.
 
@@ -62,8 +62,6 @@ default = auto
 
 - `autoboot` accepts `true`/`false`, `on`/`off`, or `1`/`0`.
 
-The 0.6d language setting belongs in the card root's `snemul.cfg`, under `[GUI]`. For example, `Language = 1` selects English; `Language = -1` uses the console firmware language. The language patch applies only to the supported stock 0.6d NTR and TWL builds. The 0.6d VBlank saving issue remains in the emulator: its ROM initialization resets VBlank to Disabled, and saved per-game settings are not loaded on the next boot.
-
 ## Build
 
 1. Install [BlocksDS](https://blocksds.skylyrac.net/docs/setup/) and [Python 3.](https://www.python.org/downloads/)
@@ -92,12 +90,6 @@ The TWL instruction checks need a copy of 0.6d SRL and the DSpico DLDI:
 ```sh
 python3 tests/twl_input_emulation.py /path/to/stock/SNEmulDS.srl
 python3 tests/twl_io_emulation.py /path/to/stock/SNEmulDS.srl /path/to/DSpico.dldi
-```
-
-The language patch instruction check needs both stock 0.6d binaries and Python's `unicorn` package:
-
-```sh
-python3 tests/language_patch_emulation.py /path/to/stock/SNEmulDS.nds /path/to/stock/SNEmulDS.srl
 ```
 
 ## License
