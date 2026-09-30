@@ -6,3 +6,6 @@
 /*.zip
 *.pyc
 __pycache__/
+
+# Local IDE Configurations
+/.vscode
