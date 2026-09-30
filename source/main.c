@@ -159,7 +159,7 @@ static void info(const App *app, ShimMode mode, unsigned page, unsigned scroll)
         ui_text(10, 1, UI_TEXT, mode == SHIM_AUTO ?
             (app->dsi ? "Auto -> DSi mode (TWL)" : "Auto -> DS mode (NTR)") : "DS mode (NTR)");
         if (mode != SHIM_LEGACY)
-            ui_text(11, 1, UI_GOOD, "CFG language fix in RAM");
+            ui_text(11, 1, UI_GOOD, "CFG game + language fixes");
         if (shim_target_twl(mode, app->dsi))
             ui_text(12, 1, UI_GOOD, "TWL touchscreen + audio fixes");
         ui_section(14, "AUTOBOOT");

@@ -30,7 +30,7 @@ $(BUILD)/ntr_handoff.o: ntr_handoff.c ../include/ntr_codec_generated.h | $(BUILD
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/tgds_io.o: ../source/tgds_io.c ../include/tgds_io.h ../include/twl_input_generated.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
-$(BUILD)/tgds_patch.o: ../source/tgds_patch.c ../include/tgds_language.h | $(BUILD)
+$(BUILD)/tgds_patch.o: ../source/tgds_patch.c ../include/tgds_language.h ../include/tgds_settings.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 $(BUILD)/arm9_stages.o: arm9_stages.s | $(BUILD)
 	$(CC) -mcpu=arm946e-s -c $< -o $@

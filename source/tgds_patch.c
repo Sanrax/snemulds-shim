@@ -1,11 +1,17 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "shim.h"
 #include "tgds_language.h"
+#include "tgds_settings.h"
 
 static uint32_t read32(const unsigned char *p)
 {
     return (uint32_t)p[0] | (uint32_t)p[1] << 8 |
            (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24;
+}
+
+static void write32(unsigned char *p, uint32_t value)
+{
+    for (unsigned i = 0; i < 4; ++i) p[i] = (unsigned char)(value >> (i * 8));
 }
 
 /*
@@ -101,6 +107,74 @@ bool shim_tgds_language_patch(void *arm9, size_t size, bool apply)
             p[first + 16 + n] = (unsigned char)(nop >> (n * 8));
             p[first + 44 + n] = (unsigned char)(nop >> (n * 8));
         }
+    }
+    return true;
+}
+
+/* Both stock TGDS1.65 images contain the same ARM9 changeROM() sequence.
+ * At 0x126ac it calls GUI_showROMInfos(size) after the ROM title is trimmed,
+ * then reset_SNES() and loadSRAM(). The GUI save action writes settings under
+ * that title, but the ROM load never calls readOptionsFromConfig(title).
+ *
+ * Redirect only the GUI call through 24 bytes of zero alignment padding before
+ * the DLDI area. The veneer reads the saved game section, restores the size
+ * argument and return address, then tail-calls the original GUI routine.
+ * The title begins at SNES base + 0x1004; +0x1018 is title[20], its NUL.
+ * Nothing is changed on disk; the original GUI save path remains in charge.
+ */
+bool shim_tgds_game_settings_patch(void *arm9, size_t size, bool apply)
+{
+    enum { CAVE = 0x0AF0, SITE = 0x126AC, TITLE = 0x03001004 };
+    unsigned char *p = arm9;
+    size_t target;
+    if (!p || size < 0x13574) return false;
+    for (size_t i = CAVE; i < CAVE + 24; ++i) if (p[i]) return false;
+    uint32_t global = read32(p + 0x13570);
+    if (global < 0x02000000 || global - 0x02000000 > size - 7 ||
+        read32(p + 0x0AE0) != 0xE12FFF1E || /* end of CRT code */
+        read32(p + 0x1800) != 0xBF8DA5ED || /* following DLDI area */
+        p[global - 0x02000000] != 'G' ||
+        p[global - 0x02000000 + 1] != 'l' ||
+        p[global - 0x02000000 + 2] != 'o' ||
+        p[global - 0x02000000 + 3] != 'b' ||
+        p[global - 0x02000000 + 4] != 'a' ||
+        p[global - 0x02000000 + 5] != 'l' ||
+        p[global - 0x02000000 + 6] != 0 ||
+        read32(p + 0x125DC) != 0xE5C32004 || /* title[i] = NUL */
+        read32(p + 0x125FC) != 0xE5D33004 || /* title[i] in trim loop */
+        read32(p + 0x12698) != 0xE59F3034 || /* SNES base */
+        read32(p + 0x1269C) != 0xE2833A01 || /* +0x1000 */
+        read32(p + 0x126A4) != 0xE5C32018 || /* title[20] = NUL */
+        read32(p + 0x126A8) != 0xE51B001C || /* GUI size argument */
+        read32(p + 0x126D4) != 0x03000000 ||
+        read32(p + 0x126D8) != TITLE || /* title passed to strlen */
+        read32(p + 0x12D94) != 0xE92D4070 || /* config reader */
+        global != read32(p + 0x131F8) || /* same "Global" in config reader */
+        !branch_target(size, SITE, read32(p + SITE), &target) ||
+        target != 0x1E204 ||
+        !branch_target(size, SITE + 4, read32(p + SITE + 4), &target) ||
+        target != 0x1AD20 ||
+        !branch_target(size, SITE + 8, read32(p + SITE + 8), &target) ||
+        target != 0x12400 ||
+        !branch_target(size, 0x13548, read32(p + 0x13548), &target) ||
+        target != 0x12D94)
+        return false;
+    if ((read32(p + SITE) & 0xFF000000) != 0xEB000000 ||
+        (read32(p + SITE + 4) & 0xFF000000) != 0xEB000000 ||
+        (read32(p + SITE + 8) & 0xFF000000) != 0xEB000000 ||
+        (read32(p + 0x13548) & 0xFF000000) != 0xEB000000)
+        return false;
+    if (apply) {
+        write32(p + CAVE, 0xE92D4001);      /* push {r0, lr} */
+        write32(p + CAVE + 4, 0xE59F0008);  /* ldr r0, [pc, #8] */
+        write32(p + CAVE + 8, 0xEB000000 |
+                ((0x12D94 - (CAVE + 16)) / 4)); /* readOptionsFromConfig */
+        write32(p + CAVE + 12, 0xE8BD4001); /* pop {r0, lr} */
+        write32(p + CAVE + 16, 0xEA000000 |
+                ((0x1E204 - (CAVE + 24)) / 4)); /* GUI_showROMInfos */
+        write32(p + CAVE + 20, TITLE);       /* SNES base + 0x1004 */
+        write32(p + SITE, 0xEB000000 |
+                (((CAVE - (SITE + 8)) / 4) & 0x00FFFFFF));
     }
     return true;
 }

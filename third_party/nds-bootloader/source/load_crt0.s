@@ -33,7 +33,7 @@
 	.global forceTGDSDLDI
 	.global dspicoARM9IO
 	.global forceNTR
-	.global patchTGDSLanguage
+	.global patchTGDS06d
 @---------------------------------------------------------------------------------
 	.align	4
 	.arm
@@ -65,7 +65,7 @@ dspicoARM9IO:
 	.word	0
 forceNTR:
 	.word	0
-patchTGDSLanguage:
+patchTGDS06d:
 	.word	0
 
 startUp:

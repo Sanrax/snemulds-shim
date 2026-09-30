@@ -31,7 +31,7 @@ args_offset, dldi_offset = h[4], h[6]
 assert h[9] == 0, 'Force-DLDI must be opt-in per launch'
 assert h[10] == 0, 'Direct ARM9 I/O must be opt-in per launch'
 assert h[11] == 0, 'NTR downgrade must be opt-in per launch'
-assert h[12] == 0, 'Language patch must be opt-in per launch'
+assert h[12] == 0, '0.6d patches must be opt-in per launch'
 assert len(loader) <= args_offset and args_offset + 236 <= 0x1f000
 assert dldi_offset + (1 << loader[dldi_offset + 15]) <= len(loader)
 assert loader in b, 'Built ROM must contain the current loader'

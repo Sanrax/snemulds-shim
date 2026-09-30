@@ -6,6 +6,8 @@ This shim also does in-memory patching on the SRL (DSi-mode) release of SNEmulDS
 
 The 0.6d DSi-mode release was also not intended to be used on anything other than console SD, so it crashes by default when run on a DSpico in DSi mode. A secondary set of patches are applied to the 0.6d SRL when running on a DSpico in addition to the touchscreen patch. The first one forces TGDS to initialize the DSpico's DLDI instead of the console SD path, then patches the SRL's ARM9 sector r/w routines to use that driver. Another patch also enables and unmutes DSi audio during the TWL handoff, restoring sound on DSpico.
 
+Both stock 0.6d builds save game settings under the ROM's title in `snemul.cfg`, but fail to read that section when loading a game. The shim patches the loaded emulator in RAM to restore those saved settings before the game starts, including VBlank disabled, fast, or full. This applies whether a ROM is passed as an argument or selected in the emulator browser. Saving remains in the emulator GUI; the shim does not modify the emulator binary or `snemul.cfg` for 0.6d.
+
 SNEmulDS 0.6a (the original release by Archeide) is also supported as a launch option. While 0.6a does not support any sort of argv, it does support setting a default rompath in the `snemul.cfg` file. When launching 0.6a via the shim, the shim will set the rom path to the directory containing your launched rom. This means that you can keep your `.sfc` roms in any folder, and they will still be browseable in 0.6a's file browser.
 
 ## LLM Disclosure
@@ -91,6 +93,14 @@ The TWL instruction checks need a copy of 0.6d SRL and the DSpico DLDI:
 python3 tests/twl_input_emulation.py /path/to/stock/SNEmulDS.srl
 python3 tests/twl_io_emulation.py /path/to/stock/SNEmulDS.srl /path/to/DSpico.dldi
 ```
+
+The game settings instruction check needs the stock 0.6d NTR and TWL binaries and Python's `unicorn` package:
+
+```sh
+python3 tests/game_settings_emulation.py /path/to/stock/SNEmulDS.nds /path/to/stock/SNEmulDS.srl
+```
+
+These checks model instruction behavior. Game settings persistence on a console still needs hardware testing.
 
 ## License
 
