@@ -44,7 +44,7 @@ unsigned ui_versions_scroll_limit(void)
 void ui_versions(unsigned scroll)
 {
     if (scroll > ui_versions_scroll_limit()) scroll = ui_versions_scroll_limit();
-    ui_begin("SNEmulDS Versions          1/4");
+    ui_begin("SNEmulDS Versions          1/5");
     for (unsigned i = 0; i < VISIBLE_LINES && i + scroll < LINE_COUNT; ++i) {
         if (lines[i + scroll].heading) ui_section(i + 2, lines[i + scroll].text);
         else ui_text(i + 2, 1, UI_TEXT, lines[i + scroll].text);

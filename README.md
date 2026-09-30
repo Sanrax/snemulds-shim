@@ -8,6 +8,8 @@ The 0.6d DSi-mode release was also not intended to be used on anything other tha
 
 Lastly, stock 0.6d writes save game settings to the ROM's title section in `snemul.cfg`, but fails to actually read it when loading a game. The shim adds a patch to load game settings from `snemul.cfg` before running the game, so that changing configurations and pressing the save button in the emu's GUI makes them persistent, as was intended.
 
+The optional GBA Macro timer patch skips the five-second prompt after a ROM loads in either 0.6d mode. You can enable it in the menu or the ini.
+
 SNEmulDS 0.6a (the original release by Archeide) is also supported as a launch option. While 0.6a does not support any sort of argv, it does support setting a default rompath in the `snemul.cfg` file. When launching 0.6a via the shim, the shim will set the rom path to the directory containing your launched rom. This means that you can keep your `.sfc` roms in any folder, and they will still be browseable in 0.6a's file browser.
 
 ## LLM Disclosure
@@ -58,11 +60,14 @@ twl_path = SNEmulDS.srl
 legacy_path = SNEmulDS_0.6a.nds
 autoboot = false
 default = auto
+skip_macro_timer = true
 ```
 
 - `default` accepts `auto`, `ntr`, or `legacy`.
 
 - `autoboot` accepts `true`/`false`, `on`/`off`, or `1`/`0`.
+
+- `skip_macro_timer` accepts `true`/`false`, `on`/`off`, or `1`/`0`.
 
 ## Build
 
@@ -98,6 +103,7 @@ The game settings instruction check needs the stock 0.6d NTR and TWL binaries an
 
 ```sh
 python3 tests/game_settings_emulation.py /path/to/stock/SNEmulDS.nds /path/to/stock/SNEmulDS.srl
+python3 tests/macro_timer_emulation.py /path/to/stock/SNEmulDS.nds /path/to/stock/SNEmulDS.srl
 ```
 
 ## License

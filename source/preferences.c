@@ -34,9 +34,9 @@ static void missing(FILE *out, const char *const *keys, const char *const *value
 const char *shim_ini_edit(FILE *in, FILE *out, const char *section,
                           const char *const *keys, const char *const *values, unsigned count)
 {
-    if (!count || count > 2) return "Invalid INI edit.";
+    if (!count || count > 3) return "Invalid INI edit.";
     /* Shim settings are accepted at top level as well as in [snemulds]. */
-    bool active = !section || equal(section, "snemulds"), seen[2] = {false};
+    bool active = !section || equal(section, "snemulds"), seen[3] = {false};
     bool first = true, newline = true;
     char raw[1024], parsed[1024];
     const char *eol = "\n";
@@ -145,9 +145,11 @@ static const char *update(const char *path, const char *section,
 
 const char *shim_save_preferences(const char *path, const ShimConfig *config)
 {
-    const char *keys[] = {"autoboot", "default"};
-    const char *values[] = {config->autoboot ? "true" : "false", shim_mode_key(config->default_mode)};
-    return update(path, "snemulds", keys, values, 2);
+    const char *keys[] = {"autoboot", "default", "skip_macro_timer"};
+    const char *values[] = {config->autoboot ? "true" : "false",
+                            shim_mode_key(config->default_mode),
+                            config->skip_macro_timer ? "true" : "false"};
+    return update(path, "snemulds", keys, values, 3);
 }
 
 const char *shim_legacy_config(const char *path, const char *rom)

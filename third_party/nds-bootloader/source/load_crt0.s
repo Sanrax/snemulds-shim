@@ -34,6 +34,7 @@
 	.global dspicoARM9IO
 	.global forceNTR
 	.global patchTGDS06d
+	.global skipMacroTimer
 @---------------------------------------------------------------------------------
 	.align	4
 	.arm
@@ -66,6 +67,8 @@ dspicoARM9IO:
 forceNTR:
 	.word	0
 patchTGDS06d:
+	.word	0
+skipMacroTimer:
 	.word	0
 
 startUp:

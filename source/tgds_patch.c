@@ -178,3 +178,37 @@ bool shim_tgds_game_settings_patch(void *arm9, size_t size, bool apply)
     }
     return true;
 }
+
+static uint32_t macro_crc32(const unsigned char *p, size_t n)
+{
+    uint32_t crc = UINT32_MAX;
+    while (n--) {
+        crc ^= *p++;
+        for (unsigned bit = 0; bit < 8; ++bit)
+            crc = (crc >> 1) ^ (0xEDB88320u & (0u - (crc & 1u)));
+    }
+    return ~crc;
+}
+
+/* In both stock 0.6d ARM9 images the GBA Macro prompt compares DSFrame to
+ * 359 and branches past the scan/delay loop when it expires. Make that exit
+ * unconditional. The following key-release loop and normal startup still run.
+ * Check the complete countdown body before touching the one instruction.
+ */
+bool shim_tgds_macro_timer_patch(void *arm9, size_t size, bool apply)
+{
+    unsigned char *p = arm9;
+    size_t site;
+    uint32_t expected_crc;
+    if (!p) return false;
+    if (size == 0x5C328) { site = 0x4DE2C; expected_crc = 0xA91487DF; }
+    else if (size == 0x5BCCC) { site = 0x4D50C; expected_crc = 0x76448CAF; }
+    else return false;
+    if (read32(p + site) != 0xCA000031 ||
+        read32(p + site + 0xCC) != 0xE3A05000 ||
+        read32(p + site + 0x238) != 359 ||
+        macro_crc32(p + site - 12, 0x100) != expected_crc)
+        return false;
+    if (apply) write32(p + site, 0xEA000031);
+    return true;
+}

@@ -18,7 +18,7 @@ bool shim_directory(const char *path, char out[SHIM_PATH_CAP]);
 typedef enum { SHIM_AUTO, SHIM_NTR, SHIM_LEGACY, SHIM_MODE_COUNT } ShimMode;
 typedef struct {
     char ntr[SHIM_PATH_CAP], twl[SHIM_PATH_CAP], legacy[SHIM_PATH_CAP];
-    bool autoboot;
+    bool autoboot, skip_macro_timer;
     ShimMode default_mode;
 } ShimConfig;
 void shim_config_defaults(ShimConfig *config);
@@ -38,7 +38,8 @@ bool shim_is_rom(const char *path);
 size_t shim_pack(const char *const args[3], unsigned char out[SHIM_WIRE_CAP]);
 bool shim_dldi_relocate(void *data, size_t capacity, uint32_t target);
 size_t shim_tgds_dldi_patch_offset(const void *data, size_t size);
-const char *chainload_check(const char *filename, bool twl, bool patch_06d);
+const char *chainload_check(const char *filename, bool twl, bool patch_06d,
+                            bool skip_macro_timer);
 const char *chainload(const char *filename, const unsigned char *args, size_t length,
-                      bool twl, bool patch_06d);
+                      bool twl, bool patch_06d, bool skip_macro_timer);
 #endif

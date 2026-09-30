@@ -2,7 +2,7 @@
 
 ## Project scope
 
-This is the v0.13 source for the SNEmulDS launcher shim. It launches
+This is the v0.14 source for the SNEmulDS launcher shim. It launches
 cotodevel SNEmulDS 0.6d in NTR or TWL mode, and Archeide SNEmulDS 0.6a in NTR
 mode. Preserve the mode, storage, argument, and configuration behavior
 documented in `README.md` when making changes. Keep the NTR/TWL launch paths
@@ -84,7 +84,7 @@ emulation do not prove behavior on a console or measure real audio, touch, or
 frame timing. Report hardware testing only when it was actually performed;
 the user has confirmed v0.11-rc1 launch behavior on DSpico/DSi and DS Lite,
 and has confirmed that the language patch allows English to be forced on a
-Japanese DSi. This language confirmation does not cover other v0.13 UI or
+Japanese DSi. This language confirmation does not cover other v0.14 UI or
 behavior changes, which have software checks but no new physical hardware
 check in this workspace.
 

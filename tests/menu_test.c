@@ -35,8 +35,13 @@ static void check_text(const char *path, const char *s)
 int main(void)
 {
     ShimConfig c; shim_config_defaults(&c);
-    assert(!c.autoboot && c.default_mode == SHIM_AUTO);
+    assert(!c.autoboot && !c.skip_macro_timer && c.default_mode == SHIM_AUTO);
     assert(!strcmp(c.legacy, "SNEmulDS_0.6a.nds"));
+    FILE *invalid = tmpfile(); assert(invalid);
+    fputs("[snemulds]\nskip_macro_timer=maybe\n", invalid); rewind(invalid);
+    unsigned invalid_line;
+    assert(shim_config_read(invalid, &c, &invalid_line) && invalid_line == 2);
+    fclose(invalid);
     const char *keys[] = {"autoboot", "default"}, *values[] = {"true", "legacy"};
     const char *romkeys[] = {"ROMPath"}, *romvalues[] = {"/ROMs/SNES"};
     edit("", NULL, romkeys, romvalues, 1, "ROMPath = /ROMs/SNES\n");
@@ -86,13 +91,16 @@ int main(void)
     snprintf(ini, sizeof(ini), "%s/shim.ini", tmpdir);
     snprintf(cfg, sizeof(cfg), "%s/snemul.cfg", tmpdir);
     write_text(ini, "; custom paths\n[snemulds]\nntr_path=DS.nds\ntwl_path=DSi.srl\nlegacy_path=Old.nds\n");
-    for (unsigned enabled = 0; enabled < 2; ++enabled) for (unsigned mode = 0; mode < 3; ++mode) {
-        c.autoboot = enabled; c.default_mode = mode;
+    for (unsigned enabled = 0; enabled < 2; ++enabled)
+    for (unsigned skip = 0; skip < 2; ++skip)
+    for (unsigned mode = 0; mode < 3; ++mode) {
+        c.autoboot = enabled; c.skip_macro_timer = skip; c.default_mode = mode;
         assert(!shim_save_preferences(ini, &c));
         FILE *f = fopen(ini, "rb"); assert(f);
         ShimConfig back; shim_config_defaults(&back); unsigned line;
         assert(!shim_config_read(f, &back, &line)); fclose(f);
-        assert(back.autoboot == c.autoboot && back.default_mode == c.default_mode);
+        assert(back.autoboot == c.autoboot && back.default_mode == c.default_mode &&
+               back.skip_macro_timer == c.skip_macro_timer);
         assert(!strcmp(back.ntr, "DS.nds") && !strcmp(back.twl, "DSi.srl") && !strcmp(back.legacy, "Old.nds"));
     }
     write_text(cfg, "# original\nROMPath=/SNES\nSound=1\n[Global]\nROMPath=/leave-alone\n");

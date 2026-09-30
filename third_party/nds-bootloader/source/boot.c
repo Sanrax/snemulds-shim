@@ -82,6 +82,7 @@ extern unsigned long forceTGDSDLDI;
 extern unsigned long dspicoARM9IO;
 extern unsigned long forceNTR;
 extern unsigned long patchTGDS06d;
+extern unsigned long skipMacroTimer;
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Firmware stuff
@@ -447,6 +448,10 @@ int main (void) {
 	    !shim_tgds_game_settings_patch((void*)((u32*)NDS_HEAD)[0x0A],
 	                                    ((u32*)NDS_HEAD)[0x0B], true))
 		return -1;
+	if (skipMacroTimer &&
+	    !shim_tgds_macro_timer_patch((void*)((u32*)NDS_HEAD)[0x0A],
+	                                 ((u32*)NDS_HEAD)[0x0B], true))
+		return -1;
 	if (dsiMode &&
 	    !shim_tgds_twl_touch((void*)((u32*)NDS_HEAD)[0x0E], ((u32*)NDS_HEAD)[0x0F], true))
 		return -1;
@@ -475,7 +480,7 @@ int main (void) {
 #endif
 	// Pass command line arguments to loaded program
 	passArgs_ARM7();
-	if (dsiMode)
+	if (dsiMode && forceTGDSDLDI)
 		shim_twl_audio_prepare();
 	if (forceNTR && !shim_ntr_prepare()) return -1;
 

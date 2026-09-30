@@ -10,6 +10,7 @@ void shim_config_defaults(ShimConfig *config)
     strcpy(config->twl, "SNEmulDS.srl");
     strcpy(config->legacy, "SNEmulDS_0.6a.nds");
     config->autoboot = false;
+    config->skip_macro_timer = false;
     config->default_mode = SHIM_AUTO;
 }
 
@@ -33,7 +34,7 @@ const char *shim_config_read(FILE *file, ShimConfig *config, unsigned *line)
 {
     char buf[512];
     bool section = true;
-    bool seen[5] = {false};
+    bool seen[6] = {false};
     *line = 0;
     while (fgets(buf, sizeof(buf), file)) {
         ++*line;
@@ -62,6 +63,7 @@ const char *shim_config_read(FILE *file, ShimConfig *config, unsigned *line)
         else if (equal(key, "legacy_path")) { dst = config->legacy; index = 2; }
         else if (equal(key, "autoboot")) index = 3;
         else if (equal(key, "default")) index = 4;
+        else if (equal(key, "skip_macro_timer")) index = 5;
         else return "Unknown INI key.";
         if (seen[index]) return "Duplicate INI key.";
         if (*value == '"') {
@@ -71,10 +73,12 @@ const char *shim_config_read(FILE *file, ShimConfig *config, unsigned *line)
             char *tail = trim(end + 1);
             if (*tail && *tail != ';' && *tail != '#') return "Text after quoted INI path.";
         }
-        if (index == 3) {
-            if (equal(value, "true") || equal(value, "on") || equal(value, "1")) config->autoboot = true;
-            else if (equal(value, "false") || equal(value, "off") || equal(value, "0")) config->autoboot = false;
-            else return "autoboot must be true or false.";
+        if (index == 3 || index == 5) {
+            bool *option = index == 3 ? &config->autoboot : &config->skip_macro_timer;
+            if (equal(value, "true") || equal(value, "on") || equal(value, "1")) *option = true;
+            else if (equal(value, "false") || equal(value, "off") || equal(value, "0")) *option = false;
+            else return index == 3 ? "autoboot must be true or false." :
+                                     "skip_macro_timer must be true or false.";
             seen[index] = true;
             continue;
         }

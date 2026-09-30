@@ -19,7 +19,8 @@ typedef struct {
     ShimConfig config;
 } App;
 
-enum { INFO_VERSIONS, INFO_OVERVIEW, INFO_PATHS, INFO_ARGUMENTS, INFO_PAGE_COUNT };
+enum { INFO_VERSIONS, INFO_OVERVIEW, INFO_PATCHES, INFO_PATHS, INFO_ARGUMENTS,
+       INFO_PAGE_COUNT };
 
 static void message(const char *text, bool fatal)
 {
@@ -84,7 +85,8 @@ static const char *launch(const App *app, ShimMode mode)
     if (error) return error;
     if (!file_ok(target)) return "Emulator missing or unreadable.\nCheck its path on the R info\npage and in snemulds-shim.ini.";
     const bool twl = shim_target_twl(mode, app->dsi);
-    error = chainload_check(target, twl, mode != SHIM_LEGACY);
+    error = chainload_check(target, twl, mode != SHIM_LEGACY,
+                            app->config.skip_macro_timer);
     if (error) return error;
     unsigned char wire[SHIM_WIRE_CAP];
     size_t length = 0;
@@ -105,7 +107,8 @@ static const char *launch(const App *app, ShimMode mode)
     ui_text(5, 1, UI_TEXT, mode_name(mode));
     if (mode == SHIM_LEGACY && *app->rom)
         ui_wrap(8, 3, UI_MUTED, "ROM folder set.\nSelect the game inside 0.6a.");
-    return chainload(target, wire, length, twl, mode != SHIM_LEGACY);
+    return chainload(target, wire, length, twl, mode != SHIM_LEGACY,
+                     app->config.skip_macro_timer);
 }
 
 static void menu(const App *app, const ShimMode *modes, unsigned count, unsigned row,
@@ -127,24 +130,51 @@ static void menu(const App *app, const ShimMode *modes, unsigned count, unsigned
             app->dsi ? "  DSi mode (TWL)" : "  DS mode (NTR)";
         ui_bar(7 + i * 2, i == row ? UI_SELECTED : UI_MUTED, detail);
     }
-    ui_section(13, "BOOT OPTIONS");
+    ui_section(13, "LAUNCH OPTIONS");
     char setting[64];
     snprintf(setting, sizeof(setting), "%c Autoboot   %s", row == count ? '>' : ' ', app->config.autoboot ? "On" : "Off");
     ui_bar(14, row == count ? UI_SELECTED : UI_TEXT, setting);
     snprintf(setting, sizeof(setting), "%c Default    %s", row == count + 1 ? '>' : ' ', mode_name(app->config.default_mode));
     ui_bar(15, row == count + 1 ? UI_SELECTED : UI_TEXT, setting);
-    ui_text(17, 1, UI_GOOD, status);
-    if (app->config.autoboot) ui_text(18, 1, UI_MUTED, "Hold SELECT to show this menu");
-    ui_text(19, 1, UI_MUTED, "------------------------------");
+    snprintf(setting, sizeof(setting), "%c Skip GBA Macro timer %s", row == count + 2 ? '>' : ' ',
+             app->config.skip_macro_timer ? "On" : "Off");
+    ui_bar(16, row == count + 2 ? UI_SELECTED : UI_TEXT, setting);
+    ui_text(18, 1, UI_GOOD, status);
+    if (app->config.autoboot) ui_text(19, 1, UI_MUTED, "Hold SELECT to show this menu");
     ui_text(20, 1, UI_TEXT, row < count ? "UP/DOWN  Move       A  Launch" : "UP/DOWN  Move");
     if (row >= count) ui_text(21, 1, UI_TEXT, "A/LEFT/RIGHT  Change");
-    ui_text(22, 1, UI_MUTED, "R  Info            START  Exit");
+    ui_text(22, 1, UI_MUTED, "R  Info/Patches    START  Exit");
+}
+
+static void patch_info(const App *app, ShimMode mode)
+{
+    bool twl = shim_target_twl(mode, app->dsi);
+    unsigned row = 5;
+    ui_section(2, "APPLIED ON LAUNCH");
+    ui_text(3, 1, UI_MUTED, mode_name(mode));
+    if (mode == SHIM_LEGACY) {
+        ui_text(row, 1, UI_MUTED, "No patches required for 0.6a");
+        return;
+    }
+    if (twl) ui_text(row++, 1, UI_GOOD, "Touchscreen fix");
+    if (twl && strcmp(app->device, "sd:/")) {
+        ui_text(row++, 1, UI_GOOD, app->dspico ?
+                "DSpico DLDI selection" : "Flashcart DLDI selection");
+        if (app->dspico) ui_text(row++, 1, UI_GOOD, "DSpico ARM9 sector I/O");
+    }
+    ui_text(row++, 1, UI_GOOD, "Game settings load");
+    ui_text(row++, 1, UI_GOOD, "Language selection");
+    if (twl && strcmp(app->device, "sd:/"))
+        ui_text(row++, 1, UI_GOOD, "DSi audio setup");
+    if (app->config.skip_macro_timer)
+        ui_text(row++, 1, UI_GOOD, "Skip GBA Macro timer");
 }
 
 static void info(const App *app, ShimMode mode, unsigned page, unsigned scroll)
 {
     if (page == INFO_VERSIONS) { ui_versions(scroll); return; }
-    static const char *const titles[] = {"Overview                  2/4", "Paths                     3/4", "Arguments                 4/4"};
+    static const char *const titles[] = {"Overview                  2/5", "Patches                   3/5",
+                                        "Paths                     4/5", "Arguments                 5/5"};
     ui_begin(titles[page - INFO_OVERVIEW]);
     char target[SHIM_PATH_CAP];
     const char *error = target_path(app, mode, target);
@@ -158,14 +188,15 @@ static void info(const App *app, ShimMode mode, unsigned page, unsigned scroll)
         ui_text(9, 1, UI_TEXT, mode == SHIM_LEGACY ? "SNEmulDS 0.6a" : "SNEmulDS 0.6d");
         ui_text(10, 1, UI_TEXT, mode == SHIM_AUTO ?
             (app->dsi ? "Auto -> DSi mode (TWL)" : "Auto -> DS mode (NTR)") : "DS mode (NTR)");
-        if (mode != SHIM_LEGACY)
-            ui_text(11, 1, UI_GOOD, "CFG game + language fixes");
-        if (shim_target_twl(mode, app->dsi))
-            ui_text(12, 1, UI_GOOD, "TWL touchscreen + audio fixes");
-        ui_section(14, "AUTOBOOT");
-        ui_text(15, 1, UI_TEXT, app->config.autoboot ? "Enabled: Yes" : "Enabled: No");
+        ui_section(14, "SETTINGS");
+        ui_text(15, 1, UI_TEXT, app->config.autoboot ?
+                "Autoboot Enabled: Yes" : "Autoboot Enabled: No");
         char setting[48]; snprintf(setting, sizeof(setting), "Default: %s", mode_name(app->config.default_mode));
         ui_text(16, 1, UI_TEXT, setting);
+        ui_text(17, 1, UI_TEXT, app->config.skip_macro_timer ?
+                "Skip GBA Macro timer: On" : "Skip GBA Macro timer: Off");
+    } else if (page == INFO_PATCHES) {
+        patch_info(app, mode);
     } else if (page == INFO_PATHS) {
         ui_section(2, "CONFIGURATION");
         ui_wrap(3, 5, UI_TEXT, app->ini);
@@ -273,13 +304,15 @@ int main(int argc, char **argv)
             continue;
         }
         if (keys & KEY_R) { showing_info = true; page = 0; scroll = 0; redraw = true; continue; }
-        if (keys & KEY_UP) { row = row ? row - 1 : count + 1; redraw = true; }
-        else if (keys & KEY_DOWN) { row = (row + 1) % (count + 2); redraw = true; }
+        if (keys & KEY_UP) { row = row ? row - 1 : count + 2; redraw = true; }
+        else if (keys & KEY_DOWN) { row = (row + 1) % (count + 3); redraw = true; }
         else if (row < count && (keys & KEY_A)) { message(launch(&app, modes[row]), false); redraw = true; }
         else if (row >= count && (keys & (KEY_A | KEY_LEFT | KEY_RIGHT))) {
             ShimConfig next = app.config;
             if (row == count) next.autoboot = !next.autoboot;
-            else next.default_mode = (ShimMode)((next.default_mode + ((keys & KEY_LEFT) ? 2 : 1)) % SHIM_MODE_COUNT);
+            else if (row == count + 1)
+                next.default_mode = (ShimMode)((next.default_mode + ((keys & KEY_LEFT) ? 2 : 1)) % SHIM_MODE_COUNT);
+            else next.skip_macro_timer = !next.skip_macro_timer;
             const char *error = shim_save_preferences(app.ini, &next);
             if (error) message(error, false);
             else { app.config = next; app.configured = true; status = "Settings saved"; }
