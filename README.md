@@ -21,7 +21,7 @@ This shim was written with the help of Codex - GPT-6 Sol/Astra. It is not entire
 1. Put `snemulds-shim.nds` and `snemulds-shim.ini` on your card. If upgrading, replace the shim at its current location and keep your existing `snemulds-shim.ini`.
 2. Put the SNEmulDS builds next to the shim `.nds` and `.ini` if you want to use the default configuration provided.
    - The default INI expects `SNEmulDS.nds`, `SNEmulDS.srl`, and `SNEmulDS_0.6a.nds` beside it.
-3. Configure `snemulds-shim.ini` as your `.sfc` and `.smc` emulator association in your menu.
+3. Configure `snemulds-shim.nds` as your `.sfc` and `.smc` emulator association in your menu.
 
 You can grab the latest stable release of SNEmulDS 0.6d TWL/NTR here: https://github.com/cotodevel/SnemulDS/archive/TGDS1.65.zip
 
