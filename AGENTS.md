@@ -2,7 +2,7 @@
 
 ## Project scope
 
-This is the v0.14 source for the SNEmulDS launcher shim. It launches
+This is the v0.15 source for the SNEmulDS launcher shim. It launches
 cotodevel SNEmulDS 0.6d in NTR or TWL mode, and Archeide SNEmulDS 0.6a in NTR
 mode. Preserve the mode, storage, argument, and configuration behavior
 documented in `README.md` when making changes. Keep the NTR/TWL launch paths
@@ -22,11 +22,8 @@ ARM9 sector reads and writes through the DSpico driver.
 - Prefer focused changes and preserve existing INI compatibility. The
   `snemulds-shim.ini` sits beside the shim; relative paths are resolved from
   that directory.
-- Do not touch `README.md` without the user's knowledge. Before any edit,
-  tell the user what you plan to change and why. Keep user-visible controls,
-  labels, and help text consistent with the behavior in `README.md`. Update it
-  when behavior, supported paths, or validation changes, after giving that
-  notice.
+- Do not touch `README.md`. If it needs to be updated, notify the user, but do
+  not make any changes to the file unless explicitly asked to.
 - Do not hand-edit generated artifacts. `patches/build.py` generates
   `include/twl_input_generated.h`, and `patches/ntr_codec_table.py` generates
   `include/ntr_codec_generated.h`. `make patches` runs both generators; `make`

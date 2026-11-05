@@ -111,6 +111,38 @@ bool shim_tgds_language_patch(void *arm9, size_t size, bool apply)
     return true;
 }
 
+/* The stock SRL's ARM7 loads DSFWSETTINGSInst at 0x02FFF5D0 before
+ * initHardware() selects 4 MiB RAM (SCFG_EXT7 = 0x90FF0B80). ARM9 also
+ * selects 4 MiB, so getLanguage() then reads the low RAM alias of 0x02FFF634,
+ * which can still be zero (Japanese). The NTR image starts with that alias
+ * already mapped and does not need this fix.
+ *
+ * Capture the language from the loader's freshly read firmware settings in
+ * the ARM9 routine itself. Do not keep a pointer into the boot/IPC page:
+ * TGDS later uses that page for its own FIFO buffers. GUI_getConfig() still
+ * applies any explicit Language override after the initial system selection.
+ */
+bool shim_tgds_twl_language_patch(void *arm9, size_t size, unsigned language, bool apply)
+{
+    enum { SITE = 0x27500 };
+    static const uint32_t stock[] = {
+        0xE59F3008, /* ldr r3, [pc, #8] */
+        0xE5D30535, /* ldrb r0, [r3, #0x535] */
+        0xE2000007, /* and r0, r0, #7 */
+        0xE12FFF1E, /* bx lr */
+        0x02FFF0FF
+    };
+    unsigned char *p = arm9;
+    if (!p || size != 0x5BCCC || language > 7) return false;
+    for (unsigned i = 0; i < sizeof(stock) / sizeof(stock[0]); ++i)
+        if (read32(p + SITE + i * 4) != stock[i]) return false;
+    if (apply) {
+        write32(p + SITE, 0xE3A00000 | language); /* mov r0, #language */
+        write32(p + SITE + 4, 0xE12FFF1E);       /* bx lr */
+    }
+    return true;
+}
+
 /* Both stock TGDS1.65 images contain the same ARM9 changeROM() sequence.
  * At 0x126ac it calls GUI_showROMInfos(size) after the ROM title is trimmed,
  * then reset_SNES() and loadSRAM(). The GUI save action writes settings under

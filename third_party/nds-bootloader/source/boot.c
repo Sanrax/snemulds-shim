@@ -444,6 +444,10 @@ int main (void) {
 	    !shim_tgds_language_patch((void*)((u32*)NDS_HEAD)[0x0A],
 	                               ((u32*)NDS_HEAD)[0x0B], true))
 		return -1;
+	if (patchTGDS06d && dsiMode &&
+	    !shim_tgds_twl_language_patch((void*)((u32*)NDS_HEAD)[0x0A],
+	                                   ((u32*)NDS_HEAD)[0x0B], PersonalData->language, true))
+		return -1;
 	if (patchTGDS06d &&
 	    !shim_tgds_game_settings_patch((void*)((u32*)NDS_HEAD)[0x0A],
 	                                    ((u32*)NDS_HEAD)[0x0B], true))

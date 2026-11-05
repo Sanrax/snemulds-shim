@@ -85,7 +85,10 @@ static const char *check_nds(const char *path, u32 *cluster, bool twl, bool forc
             fclose(f);
             return "Cannot inspect the 0.6d ARM9 binary.";
         }
-        bool language_ok = !patch_06d || shim_tgds_language_patch(arm9, size, false);
+        bool language_ok = !patch_06d ||
+                           (shim_tgds_language_patch(arm9, size, false) &&
+                            (!twl || shim_tgds_twl_language_patch(arm9, size,
+                                                                 PersonalData->language, false)));
         bool settings_ok = !patch_06d || shim_tgds_game_settings_patch(arm9, size, false);
         bool macro_ok = !skip_macro_timer || shim_tgds_macro_timer_patch(arm9, size, false);
         bool io_ok = !dspico_arm9_io || shim_tgds_dspico_io(arm9, size, false);

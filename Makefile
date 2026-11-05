@@ -20,6 +20,9 @@ test:
 		source/dldi_relocate.c source/tgds_patch.c tests/arguments_test.c \
 		-o build/arguments_test
 	./build/arguments_test
+	$(CC) -std=c11 -Wall -Wextra -Werror -Iinclude \
+		source/tgds_patch.c tests/twl_language_test.c -o build/twl_language_test
+	./build/twl_language_test
 	$(CC) -D_POSIX_C_SOURCE=200809L -std=c11 -Wall -Wextra -Werror -Iinclude \
 		source/arguments.c source/config.c source/preferences.c \
 		tests/menu_test.c -o build/menu_test
