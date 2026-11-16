@@ -35,7 +35,7 @@ static void check_text(const char *path, const char *s)
 int main(void)
 {
     ShimConfig c; shim_config_defaults(&c);
-    assert(!c.autoboot && !c.skip_macro_timer && c.default_mode == SHIM_AUTO);
+    assert(!c.autoboot && !c.skip_macro_timer && !c.auto_version && c.default_mode == SHIM_AUTO);
     assert(!strcmp(c.legacy, "SNEmulDS_0.6a.nds"));
     FILE *invalid = tmpfile(); assert(invalid);
     fputs("[snemulds]\nskip_macro_timer=maybe\n", invalid); rewind(invalid);
@@ -90,18 +90,24 @@ int main(void)
     char ini[256], cfg[256], collision[272];
     snprintf(ini, sizeof(ini), "%s/shim.ini", tmpdir);
     snprintf(cfg, sizeof(cfg), "%s/snemul.cfg", tmpdir);
-    write_text(ini, "; custom paths\n[snemulds]\nntr_path=DS.nds\ntwl_path=DSi.srl\nlegacy_path=Old.nds\n");
+    write_text(ini, "; custom paths\n[snemulds]\nntr_path=DS.nds\ntwl_path=DSi.srl\nlegacy_path=Old.nds\n"
+                    "dsp_ntr_path=../DSP.nds\ndsp_twl_path=../DSP.srl\n"
+                    "sdd1_ntr_path=../SDD1.nds\nsdd1_twl_path=../SDD1.srl\n");
     for (unsigned enabled = 0; enabled < 2; ++enabled)
+    for (unsigned switching = 0; switching < 2; ++switching)
     for (unsigned skip = 0; skip < 2; ++skip)
     for (unsigned mode = 0; mode < 3; ++mode) {
         c.autoboot = enabled; c.skip_macro_timer = skip; c.default_mode = mode;
+        c.auto_version = switching;
         assert(!shim_save_preferences(ini, &c));
         FILE *f = fopen(ini, "rb"); assert(f);
         ShimConfig back; shim_config_defaults(&back); unsigned line;
         assert(!shim_config_read(f, &back, &line)); fclose(f);
         assert(back.autoboot == c.autoboot && back.default_mode == c.default_mode &&
-               back.skip_macro_timer == c.skip_macro_timer);
+               back.skip_macro_timer == c.skip_macro_timer && back.auto_version == c.auto_version);
         assert(!strcmp(back.ntr, "DS.nds") && !strcmp(back.twl, "DSi.srl") && !strcmp(back.legacy, "Old.nds"));
+        assert(!strcmp(back.dsp_ntr, "../DSP.nds") && !strcmp(back.dsp_twl, "../DSP.srl"));
+        assert(!strcmp(back.sdd1_ntr, "../SDD1.nds") && !strcmp(back.sdd1_twl, "../SDD1.srl"));
     }
     write_text(cfg, "# original\nROMPath=/SNES\nSound=1\n[Global]\nROMPath=/leave-alone\n");
     assert(!shim_legacy_config(cfg, "fat:/ROMs/SNES/Super Mario World.sfc"));

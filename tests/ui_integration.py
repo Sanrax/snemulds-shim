@@ -12,22 +12,40 @@ subprocess.run(['cc', '-std=c11', '-D_POSIX_C_SOURCE=200809L', '-Wall', '-Wextra
                 '-I' + str(ROOT/'tests/mock'), '-I' + str(ROOT/'include'),
                 *[str(ROOT/p) for p in ('tests/ui_harness.c', 'source/arguments.c',
                                        'source/config.c', 'source/preferences.c', 'source/ui.c',
-                                       'source/versions.c')],
+                                       'source/versions.c', 'source/rom.c')],
                 '-o', str(EXE)], check=True)
 
 def run(*, dsi=True, mode='auto', autoboot=False, skip_macro_timer=False,
         keys='', select=False,
-        device='fat:', rom=True, missing=False, bad=False):
+        device='fat:', rom=True, missing=False, bad=False, auto_version=None,
+        variant='stable', missing_alt=False, extra_ini=''):
     with tempfile.TemporaryDirectory() as tmp:
         base = Path(tmp)/device
         apps, roms = base/'apps', base/'ROMs/SNES'
         apps.mkdir(parents=True); roms.mkdir(parents=True)
         for name in ['SNEmulDS.nds', 'SNEmulDS.srl', 'SNEmulDS_0.6a.nds']:
             if not missing: (apps/name).write_bytes(b'fake emulator; hardware preflight stubbed')
-        (roms/'Super Mario World.sfc').write_bytes(b'fake ROM')
+        for name in ['SNEmulDS_dsp.nds', 'SNEmulDS_dsp.srl',
+                     'SNEmulDS_sdd1.nds', 'SNEmulDS_sdd1.srl']:
+            if not missing_alt: (apps/name).write_bytes(b'fake alternate emulator')
+        data = bytearray(0x100000)
+        data[0x7FC0:0x7FD5] = b'RENAMED TEST GAME    '.ljust(21, b' ')
+        data[0x7FD5:0x7FDB] = {
+            'stable': bytes([0x20, 0x02, 10, 0, 1, 1]),
+            'dsp': bytes([0x20, 0x03, 10, 0, 1, 1]),
+            'sdd1': bytes([0x32, 0x43, 10, 0, 1, 1]),
+            'dsp2': bytes([0x20, 0x05, 10, 0, 1, 1]),
+            'dsp3': bytes([0x30, 0x05, 10, 0, 1, 0xB2]),
+            'dsp4': bytes([0x30, 0x03, 10, 0, 1, 1]),
+        }[variant]
+        data[0x7FDC:0x7FE0] = bytes([0xCB, 0xED, 0x34, 0x12])
+        data[0x7FFD] = 0x80
+        (roms/'Super Mario World.sfc').write_bytes(data)
         ini = apps/'snemulds-shim.ini'
         ini.write_text(f'; preserve\n[snemulds]\nautoboot={str(autoboot).lower()}\n'
-                       f'default={mode}\nskip_macro_timer={str(skip_macro_timer).lower()}\n')
+                       f'default={mode}\nskip_macro_timer={str(skip_macro_timer).lower()}\n'
+                       + (f'auto_version={str(auto_version).lower()}\n' if auto_version is not None else '')
+                       + extra_ini)
         original = b'# keep\nROMPath=/old\nSound=1\n[Global]\nROMPath=/other\n'
         cfg = base/'snemul.cfg'; cfg.write_bytes(original)
         env = dict(os.environ, TEST_DSI=str(int(dsi)), TEST_DEVICE=device, TEST_KEYS=keys)
@@ -84,9 +102,9 @@ out, _, cfg, old = run(keys='DDA')
 assert '<BOOT NTR fat:/apps/SNEmulDS_0.6a.nds 0>' in out and cfg != old
 out, ini, *_ = run(keys='DDDAD>A')  # enable autoboot, advance default twice
 assert 'autoboot = true' in ini and 'default = legacy' in ini
-out, ini, *_ = run(keys='UUU<X')  # wrap to Autoboot, then Default left
+out, ini, *_ = run(keys='UUUU<X')  # wrap through all four settings to Autoboot
 assert 'autoboot = true' in ini  # left toggles Autoboot
-out, ini, *_ = run(keys='UAX')  # wrap to Macro timer and enable it
+out, ini, *_ = run(keys='UUAX')  # wrap past Auto ROM version to Macro timer
 assert 'skip_macro_timer = true' in ini and 'Skip GBA Macro timer On' in out
 out, *_ = run(skip_macro_timer=True, keys='A')
 assert '<MACRO 1>' in out
@@ -148,4 +166,50 @@ assert 'Lines 11-27 of 27' in out and 'Archeide. Only DS mode is' in out and 'we
 assert 'version also has extended RAM' in out and 'is similar, but slightly worse' in out
 assert out.count('Lines 1-17 of 27') == 2  # initial view and back at top
 assert out.count('Overview') == 1 and out.count('LAUNCH OPTIONS') == 2
+
+# Old INIs omit auto_version. Every 0.6d entry, including autoboot and forced
+# NTR, selects the matching alternate only when explicitly enabled.
+for enabled in (None, False, True):
+    for dsi in (False, True):
+        for mode in ('auto', 'ntr', 'legacy'):
+            for variant in ('stable', 'dsp', 'sdd1'):
+                out, ini, cfg, old = run(dsi=dsi, mode=mode, autoboot=True,
+                                        auto_version=enabled, variant=variant)
+                suffix = '_' + variant if enabled and mode != 'legacy' and variant != 'stable' else ''
+                filename = ('SNEmulDS_0.6a.nds' if mode == 'legacy' else
+                            f'SNEmulDS{suffix}.{"srl" if dsi and mode == "auto" else "nds"}')
+                assert f'fat:/apps/{filename} ' in out, out
+                if mode != 'legacy':
+                    assert cfg == old and f'<ARG fat:/apps/{filename}>' in out
+                assert out.count('<ROM PROBE>') == int(bool(enabled) and mode != 'legacy')
+                if enabled is None: assert 'auto_version' not in ini  # no migration until save
+for variant in ('dsp2', 'dsp3', 'dsp4'):
+    out, *_ = run(autoboot=True, auto_version=True, variant=variant)
+    assert '<BOOT TWL fat:/apps/SNEmulDS.srl ' in out
+out, ini, *_ = run(keys='UA' + 'U'*6 + 'A', variant='dsp')
+assert 'auto_version = true' in ini and '<BOOT TWL fat:/apps/SNEmulDS_dsp.srl ' in out
+assert 'Auto ROM version On' in out and 'DSi mode (TWL) / DSP-1' in out
+out, ini, *_ = run(keys='UA' + 'U'*6 + 'A', variant='dsp', auto_version=True)
+assert 'auto_version = false' in ini and '<BOOT TWL fat:/apps/SNEmulDS.srl ' in out
+out, *_ = run(autoboot=True, auto_version=True, variant='dsp', rom=False)
+assert '<BOOT TWL fat:/apps/SNEmulDS.srl ' in out and out.count('<ARG ') == 2
+out, *_ = run(autoboot=True, select=True, auto_version=True, variant='sdd1', keys='RRRRRX')
+assert 'Autoboot bypassed' in out and '<ARG ' not in out
+assert 'fat:/apps/SNEmulDS_sdd1.srl' in out  # real selected path on info pages
+out, _, cfg, old = run(autoboot=True, auto_version=True, variant='dsp', missing_alt=True, keys='BX')
+assert '<BOOT ' not in out and 'Required alternate build' in out and cfg == old, out
+out, *_ = run(autoboot=True, auto_version=True, variant='sdd1', device='sd:')
+assert '<BOOT TWL sd:/apps/SNEmulDS_sdd1.srl ' in out
+out, _, cfg, old = run(autoboot=True, auto_version=True, variant='dsp', device='sd:', mode='ntr', keys='BX')
+assert '<BOOT ' not in out and 'NTR needs flashcart storage' in out and cfg == old
+out, *_ = run(autoboot=True, auto_version=True, variant='dsp',
+             extra_ini='dsp_twl_path=../apps/SNEmulDS_dsp.srl\n')
+assert '<BOOT TWL fat:/apps/SNEmulDS_dsp.srl ' in out
+out, *_ = run(autoboot=True, auto_version=True, variant='dsp',
+             extra_ini='dsp_twl_path=sd:/apps/SNEmulDS_dsp.srl\n', keys='BX')
+assert '<BOOT ' not in out and 'Emulator must be on the same' in out
+out, *_ = run(auto_version=True, variant='dsp', keys='RRRX')
+assert 'Game settings load (native)' in patch_screen(out)
+out, *_ = run(auto_version=True, variant='sdd1', keys='RRRRRLUUUUUUAX')
+assert out.count('<ROM PROBE>') == 1  # menu redraws/info never reread the ROM
 print('PASS: actual menu controls, mode filtering, autoboot/SELECT, saved settings, info pages, safe errors, and legacy-only ROMPath writes')

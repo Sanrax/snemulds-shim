@@ -16,15 +16,23 @@ const char *shim_device(const char *path);
 bool shim_tgds_path(const char *input, char out[SHIM_PATH_CAP]);
 bool shim_directory(const char *path, char out[SHIM_PATH_CAP]);
 typedef enum { SHIM_AUTO, SHIM_NTR, SHIM_LEGACY, SHIM_MODE_COUNT } ShimMode;
+typedef enum { SHIM_STABLE, SHIM_DSP, SHIM_SDD1 } ShimVariant;
 typedef struct {
     char ntr[SHIM_PATH_CAP], twl[SHIM_PATH_CAP], legacy[SHIM_PATH_CAP];
-    bool autoboot, skip_macro_timer;
+    char dsp_ntr[SHIM_PATH_CAP], dsp_twl[SHIM_PATH_CAP];
+    char sdd1_ntr[SHIM_PATH_CAP], sdd1_twl[SHIM_PATH_CAP];
+    bool autoboot, skip_macro_timer, auto_version;
     ShimMode default_mode;
 } ShimConfig;
 void shim_config_defaults(ShimConfig *config);
 const char *shim_config_read(FILE *file, ShimConfig *config, unsigned *line);
 const char *shim_mode_key(ShimMode mode);
 bool shim_target_twl(ShimMode mode, bool dsi);
+/* Reads at most three 64-byte cartridge headers; no ROM hash or filename list. */
+ShimVariant shim_rom_variant(const char *path);
+const char *shim_variant_name(ShimVariant variant);
+const char *shim_emulator_path(const ShimConfig *config, ShimMode mode, bool dsi,
+                               ShimVariant variant);
 unsigned shim_menu_modes(bool dsi, ShimMode modes[SHIM_MODE_COUNT]);
 const char *shim_storage_check(ShimMode mode, bool dsi, const char *device);
 const char *shim_save_preferences(const char *path, const ShimConfig *config);

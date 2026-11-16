@@ -2,5 +2,5 @@
 #ifndef SHIM_CONFIG_H
 #define SHIM_CONFIG_H
 #define SHIM_CONFIG_NAME "snemulds-shim.ini"
-#define SHIM_VERSION "0.15"
+#define SHIM_VERSION "0.16"
 #endif

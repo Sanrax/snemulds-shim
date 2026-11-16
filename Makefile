@@ -27,6 +27,9 @@ test:
 		source/arguments.c source/config.c source/preferences.c \
 		tests/menu_test.c -o build/menu_test
 	./build/menu_test
+	$(CC) -D_POSIX_C_SOURCE=200809L -std=c11 -Wall -Wextra -Werror -Iinclude \
+		source/rom.c source/config.c tests/rom_test.c -o build/rom_test
+	./build/rom_test
 	python3 tests/ui_integration.py
 
 clean:

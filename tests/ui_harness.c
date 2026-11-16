@@ -4,9 +4,18 @@
 #include <stddef.h>
 #define main shim_main
 #define getcwd mock_getcwd
+#define shim_rom_variant mock_rom_variant
 #include "../source/main.c"
 #undef main
 #undef getcwd
+#undef shim_rom_variant
+
+ShimVariant shim_rom_variant(const char *path);
+ShimVariant mock_rom_variant(const char *path)
+{
+    puts("<ROM PROBE>");
+    return shim_rom_variant(path);
+}
 
 static const DLDI_INTERFACE pico = {{0x4F434950}};
 const DLDI_INTERFACE *io_dldi_data = &pico;

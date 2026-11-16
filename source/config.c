@@ -9,8 +9,13 @@ void shim_config_defaults(ShimConfig *config)
     strcpy(config->ntr, "SNEmulDS.nds");
     strcpy(config->twl, "SNEmulDS.srl");
     strcpy(config->legacy, "SNEmulDS_0.6a.nds");
+    strcpy(config->dsp_ntr, "SNEmulDS_dsp.nds");
+    strcpy(config->dsp_twl, "SNEmulDS_dsp.srl");
+    strcpy(config->sdd1_ntr, "SNEmulDS_sdd1.nds");
+    strcpy(config->sdd1_twl, "SNEmulDS_sdd1.srl");
     config->autoboot = false;
     config->skip_macro_timer = false;
+    config->auto_version = false;
     config->default_mode = SHIM_AUTO;
 }
 
@@ -34,7 +39,7 @@ const char *shim_config_read(FILE *file, ShimConfig *config, unsigned *line)
 {
     char buf[512];
     bool section = true;
-    bool seen[6] = {false};
+    bool seen[11] = {false};
     *line = 0;
     while (fgets(buf, sizeof(buf), file)) {
         ++*line;
@@ -64,6 +69,11 @@ const char *shim_config_read(FILE *file, ShimConfig *config, unsigned *line)
         else if (equal(key, "autoboot")) index = 3;
         else if (equal(key, "default")) index = 4;
         else if (equal(key, "skip_macro_timer")) index = 5;
+        else if (equal(key, "auto_version")) index = 6;
+        else if (equal(key, "dsp_ntr_path")) { dst = config->dsp_ntr; index = 7; }
+        else if (equal(key, "dsp_twl_path")) { dst = config->dsp_twl; index = 8; }
+        else if (equal(key, "sdd1_ntr_path")) { dst = config->sdd1_ntr; index = 9; }
+        else if (equal(key, "sdd1_twl_path")) { dst = config->sdd1_twl; index = 10; }
         else return "Unknown INI key.";
         if (seen[index]) return "Duplicate INI key.";
         if (*value == '"') {
@@ -73,12 +83,13 @@ const char *shim_config_read(FILE *file, ShimConfig *config, unsigned *line)
             char *tail = trim(end + 1);
             if (*tail && *tail != ';' && *tail != '#') return "Text after quoted INI path.";
         }
-        if (index == 3 || index == 5) {
-            bool *option = index == 3 ? &config->autoboot : &config->skip_macro_timer;
+        if (index == 3 || index == 5 || index == 6) {
+            bool *option = index == 3 ? &config->autoboot : index == 5 ?
+                &config->skip_macro_timer : &config->auto_version;
             if (equal(value, "true") || equal(value, "on") || equal(value, "1")) *option = true;
             else if (equal(value, "false") || equal(value, "off") || equal(value, "0")) *option = false;
-            else return index == 3 ? "autoboot must be true or false." :
-                                     "skip_macro_timer must be true or false.";
+            else return index == 3 ? "autoboot must be true or false." : index == 5 ?
+                "skip_macro_timer must be true or false." : "auto_version must be true or false.";
             seen[index] = true;
             continue;
         }

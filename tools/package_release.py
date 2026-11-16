@@ -14,7 +14,7 @@ top_level = (
     '.gitignore', 'AGENTS.md', 'LICENSE', 'Makefile', 'Makefile.arm9',
     'README.md', 'snemulds-shim.ini', 'snemulds-shim.nds',
 )
-source_dirs = ('bootloader', 'include', 'patches', 'source',
+source_dirs = ('bootloader', 'docs', 'include', 'patches', 'source',
                'tests', 'third_party', 'tools')
 files = [root / name for name in top_level]
 for directory in source_dirs:

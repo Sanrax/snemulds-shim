@@ -2,11 +2,17 @@
 
 ## Project scope
 
-This is the v0.15 source for the SNEmulDS launcher shim. It launches
+This is the v0.16 source for the SNEmulDS launcher shim. It launches
 cotodevel SNEmulDS 0.6d in NTR or TWL mode, and Archeide SNEmulDS 0.6a in NTR
 mode. Preserve the mode, storage, argument, and configuration behavior
 documented in `README.md` when making changes. Keep the NTR/TWL launch paths
 separate where their hardware requirements differ.
+
+Optional `auto_version` selects the DSP-1/S-DD1 0.6d builds from ROM headers.
+The sample INI enables it; older INIs omitting the key keep stable-only behavior.
+See `docs/automatic-versions.md` for game requirements and the alternate patch
+audit. Those builds already load game settings natively; do not apply stable's
+settings veneer to them.
 
 The emulator binaries and ROMs are not included. The TWL SRL is patched in
 memory during launch; do not rewrite a user's emulator binary as part of the
