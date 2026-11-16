@@ -99,8 +99,9 @@ static const char *launch(App *app, ShimMode mode)
         "Required alternate build missing.\nCheck the selected path on the\nR info page and in the INI, or\nturn Auto ROM version off." :
         "Emulator missing or unreadable.\nCheck its path on the R info\npage and in snemulds-shim.ini.";
     const bool twl = shim_target_twl(mode, app->dsi);
+    const ShimVariant variant = selected_variant(app, mode);
     error = chainload_check(target, twl, mode != SHIM_LEGACY,
-                            app->config.skip_macro_timer);
+                            app->config.skip_macro_timer, variant);
     if (error) return error;
     unsigned char wire[SHIM_WIRE_CAP];
     size_t length = 0;
@@ -124,7 +125,7 @@ static const char *launch(App *app, ShimMode mode)
     if (mode == SHIM_LEGACY && *app->rom)
         ui_wrap(8, 3, UI_MUTED, "ROM folder set.\nSelect the game inside 0.6a.");
     return chainload(target, wire, length, twl, mode != SHIM_LEGACY,
-                     app->config.skip_macro_timer);
+                     app->config.skip_macro_timer, variant);
 }
 
 static void menu(App *app, const ShimMode *modes, unsigned count, unsigned row,

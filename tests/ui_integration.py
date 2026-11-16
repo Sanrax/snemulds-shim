@@ -181,6 +181,9 @@ for enabled in (None, False, True):
                 assert f'fat:/apps/{filename} ' in out, out
                 if mode != 'legacy':
                     assert cfg == old and f'<ARG fat:/apps/{filename}>' in out
+                expected_variant = {'stable': 0, 'dsp': 1, 'sdd1': 2}[variant] if enabled and mode != 'legacy' else 0
+                assert f'<CHECK VARIANT {expected_variant}>' in out
+                assert f'<BOOT VARIANT {expected_variant}>' in out
                 assert out.count('<ROM PROBE>') == int(bool(enabled) and mode != 'legacy')
                 if enabled is None: assert 'auto_version' not in ini  # no migration until save
 for variant in ('dsp2', 'dsp3', 'dsp4'):

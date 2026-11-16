@@ -48,15 +48,16 @@ void scanKeys(void)
 unsigned keysDown(void) { return current; }
 unsigned keysHeld(void) { return getenv("TEST_SELECT") ? KEY_SELECT : 0; }
 const char *chainload_check(const char *filename, bool twl, bool patch_language,
-                            bool skip_macro_timer)
+                            bool skip_macro_timer, ShimVariant variant)
 {
     (void)filename; (void)twl; (void)patch_language; (void)skip_macro_timer;
+    printf("<CHECK VARIANT %u>\n", variant);
     return getenv("TEST_BAD_HEADER") ? "Bad header (test)" : NULL;
 }
 const char *chainload(const char *filename, const unsigned char *args, size_t length,
-                      bool twl, bool patch_language, bool skip_macro_timer)
+                      bool twl, bool patch_language, bool skip_macro_timer, ShimVariant variant)
 {
-    (void)patch_language;
+    printf("<BOOT VARIANT %u>\n", variant);
     printf("<BOOT %s %s %zu>\n", twl ? "TWL" : "NTR", filename, length);
     printf("<MACRO %u>\n", skip_macro_timer && patch_language);
     for (size_t i = 0; i < length;) {

@@ -23,8 +23,41 @@ static u32 read32(const unsigned char *p)
     return (u32)p[0] | (u32)p[1] << 8 | (u32)p[2] << 16 | (u32)p[3] << 24;
 }
 
+static const char *unsupported_binary(bool twl, bool patch_06d, ShimVariant variant)
+{
+    static const char *const hashes[][2] = {
+        {"77f82df3437eff94d35951c673523f2acd964d1a0400555bae58a55b4362a472",
+         "83e3e4cd3e76a88ca089248eb375580d75cdff567aa490397aaf8dd07fc6812c"},
+        {"292b70d62bb4092aa94e3723e3352bf3f309cba406bb02c665c9a7faac3a62c4",
+         "36b84c717692ec4c5ae1388c545292de6ca43bff4b881df553d4bffb440c99c2"},
+        {"c4393f40ff41e51df95cd122819c3c9b0781c331bb0e73f08a91e3b235e3242a",
+         "34a4063c98b099c4dabdb99c7b60c5c55f002c493e8e65a44f9fc0cbfd685e50"},
+    };
+    unsigned index = variant == SHIM_DSP ? SHIM_DSP :
+                     variant == SHIM_SDD1 ? SHIM_SDD1 : SHIM_STABLE;
+    char build[16];
+    const char *hash;
+    if (!patch_06d) {
+        strcpy(build, "0.6a NTR");
+        hash = "6ec30da30098d8b3632fc3107b1a9cbc594011fa69992fe04ac6a13cb6c4e599";
+    } else {
+        const char *mode = twl ? "TWL" : "NTR";
+        if (index == SHIM_STABLE) strcpy(build, mode);
+        else snprintf(build, sizeof(build), "%s %s", shim_variant_name(variant), mode);
+        hash = hashes[index][twl];
+    }
+    /* The error screen has 30 columns. Leave room for the complete hash,
+     * including alternate build names, without covering its footer. */
+    static char message[192];
+    snprintf(message, sizeof(message),
+             "Unsupported SNEmulDS\n%s binary.\n\nUse the supported %s\nbuild.\n\nSHA256: %s",
+             build, build, hash);
+    return message;
+}
+
 static const char *check_nds(const char *path, u32 *cluster, bool twl, bool force_tgds_dldi,
-                             bool dspico_arm9_io, bool patch_06d, bool skip_macro_timer)
+                             bool dspico_arm9_io, bool patch_06d, bool skip_macro_timer,
+                             ShimVariant variant)
 {
     struct stat st;
     if (stat(path, &st) || !S_ISREG(st.st_mode) || st.st_size < 512 ||
@@ -41,7 +74,7 @@ static const char *check_nds(const char *path, u32 *cluster, bool twl, bool forc
     const char *error = shim_check_header(h, sizeof(h), st.st_size, twl);
     if (error) {
         fclose(f);
-        return error;
+        return unsupported_binary(twl, patch_06d, variant);
     }
     if (twl) {
         u32 offset = read32(h + 0x30), size = read32(h + 0x3C);
@@ -61,17 +94,17 @@ static const char *check_nds(const char *path, u32 *cluster, bool twl, bool forc
         }
         if (force_tgds_dldi && patch == SIZE_MAX) {
             fclose(f);
-            return "Unsupported TWL build for\nflashcart/DSpico storage.";
+            return unsupported_binary(twl, patch_06d, variant);
         }
         if (!touch_ok) {
             fclose(f);
-            return "Unsupported TWL input code.\nUse stock SnemulDS 0.6d SRL.";
+            return unsupported_binary(twl, patch_06d, variant);
         }
     }
     if (dspico_arm9_io || patch_06d) {
         if (read32(h + 0x28) != 0x02000000) {
             fclose(f);
-            return "Unsupported 0.6d ARM9 load address.";
+            return unsupported_binary(twl, patch_06d, variant);
         }
         u32 offset = read32(h + 0x20), size = read32(h + 0x2C);
         unsigned char *arm9 = malloc(size);
@@ -95,10 +128,7 @@ static const char *check_nds(const char *path, u32 *cluster, bool twl, bool forc
         free(arm9);
         if (!language_ok || !settings_ok || !macro_ok || !io_ok) {
             fclose(f);
-            return !language_ok ? "Unsupported 0.6d language code.\nUse stock SNEmulDS 0.6d." :
-                   !settings_ok ? "Unsupported 0.6d game config code.\nUse stock SNEmulDS 0.6d." :
-                   !macro_ok ? "Unsupported 0.6d Macro timer code.\nUse stock SNEmulDS 0.6d." :
-                   "Unsupported TWL ARM9 build.\nUse stock SNEmulDS 0.6d SRL.";
+            return unsupported_binary(twl, patch_06d, variant);
         }
     }
     fclose(f);
@@ -107,7 +137,7 @@ static const char *check_nds(const char *path, u32 *cluster, bool twl, bool forc
 }
 
 const char *chainload_check(const char *filename, bool twl, bool patch_06d,
-                            bool skip_macro_timer)
+                            bool skip_macro_timer, ShimVariant variant)
 {
     const bool dsi = isDSiMode(), sd = !strncmp(filename, "sd:/", 4);
     if (twl && !dsi) return "A TWL binary cannot run in DS mode.";
@@ -119,11 +149,11 @@ const char *chainload_check(const char *filename, bool twl, bool patch_06d,
                       io_dldi_data->ioInterface.ioType == 0x4F434950u;
     u32 cluster;
     return check_nds(filename, &cluster, twl, force, pico, patch_06d,
-                     skip_macro_timer && patch_06d);
+                     skip_macro_timer && patch_06d, variant);
 }
 
 const char *chainload(const char *filename, const unsigned char *args, size_t length,
-                      bool twl, bool patch_06d, bool skip_macro_timer)
+                      bool twl, bool patch_06d, bool skip_macro_timer, ShimVariant variant)
 {
     u32 cluster;
     const bool dsi = isDSiMode();
@@ -136,7 +166,8 @@ const char *chainload(const char *filename, const unsigned char *args, size_t le
     if (dsi && !(REG_SCFG_EXT & (1u << 31)))
         return "TGDS needs unlocked SCFG.\nUse a compatible DSi launcher.";
     const char *error = check_nds(filename, &cluster, twl, force_tgds_dldi,
-                                  dspico_arm9_io, patch_06d, skip_macro_timer && patch_06d);
+                                  dspico_arm9_io, patch_06d, skip_macro_timer && patch_06d,
+                                  variant);
     if (error) return error;
     if (length > SHIM_WIRE_CAP || (length && !args)) return "Invalid argument length.";
     if (load_bin_size < sizeof(LoaderHeader)) return "Invalid embedded loader.";
