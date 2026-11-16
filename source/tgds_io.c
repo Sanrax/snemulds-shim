@@ -19,7 +19,8 @@ static void write32(unsigned char *p, uint32_t word)
     for (unsigned byte = 0; byte < 4; ++byte) p[byte] = word >> (byte * 8);
 }
 
-/* Position-independent ARM code. See tests/dspico_io_reference.s.
+/* Position-independent ARM code; see tests/dspico_io_reference.s on the
+ * tests branch.
  * Executes the original PICO DLDI on ARM9 with the original caller buffer;
  * saves/restores IME and EXMEMCNT and propagates the driver's result.
  * v0.6 masks IRQs only around Slot-1 ownership changes. The pinned emulator's
@@ -42,7 +43,7 @@ bool shim_tgds_dspico_io(void *arm9, size_t size, bool apply)
         size_t size, read, fs;
         uint32_t read_crc, write_crc, fs_crc;
     } builds[] = {
-        {0x5BCCC, 0x518CC, 0x232A8, 0xDAB01983, 0xA9BE5C37, 0x0DAD4FE0},
+        {0x5BD64, 0x51964, 0x23344, 0x75E7D7EA, 0x3DC45607, 0x4845B5BD},
         {0x6608C, 0x5BBBC, 0x240E0, 0x0356C755, 0xCD2F668E, 0x9192D29B},
         {0x57628, 0x4D038, 0x1FE2C, 0xF90A7883, 0x3C306CC2, 0xAEEDC9A5},
     };
@@ -72,7 +73,7 @@ bool shim_tgds_dspico_io(void *arm9, size_t size, bool apply)
      */
     /* Keep the stable build's existing diagnostic; alternate builds only
      * need the sector routing changes above. */
-    if (size == 0x5BCCC) write32(p + fs + 0x28, 0xE2840C01);
+    if (size == 0x5BD64) write32(p + fs + 0x28, 0xE2840C01);
     return true;
 }
 
@@ -80,18 +81,20 @@ bool shim_tgds_twl_touch(void *arm7, size_t size, bool apply)
 {
     unsigned char *p = arm7;
     static const struct {
-        size_t size, delta, vblank, vcounter, vcounter_size;
+        size_t size;
+        int delta;
+        size_t vblank, vcounter;
         uint32_t main_crc, task_crc, mode_crc, vblank_crc, vcounter_crc, branch;
         const uint32_t *main, *task;
         size_t main_size, task_size;
     } builds[] = {
-        {0xF784, 0, 0xDC28, 0xDCB0, 0x5C,
-         0x2EE96C2C, 0x58AA18F0, 0x98769A97, 0x02A917B0, 0xE51A8EB8, TWL_MODE_BRANCH,
+        {0xF828, 0, 0xDC88, 0xDD10,
+         0x32945ACF, 0x38C9FF51, 0xBE992855, 0x15415EAA, 0x973EE3CA, TWL_MODE_BRANCH,
          twl_main, twl_task, sizeof(twl_main), sizeof(twl_task)},
-        {0xF6C0, 0x80, 0xDBE8, 0xDC70, 0x78,
+        {0xF6C0, -0xBC, 0xDBE8, 0xDC70,
          0xB5F69E50, 0x60083B9D, 0x853E61EB, 0x015D96B8, 0x8E5D01F3, DSP_MODE_BRANCH,
          dsp_main, dsp_task, sizeof(dsp_main), sizeof(dsp_task)},
-        {0xF4F4, 0x120, 0xDAAC, 0xDB34, 0x78,
+        {0xF4F4, -0x15C, 0xDAAC, 0xDB34,
          0xE894443C, 0xFF911F12, 0x17A5EB8F, 0x428BAA4D, 0xCB8B504D, SDD1_MODE_BRANCH,
          sdd1_main, sdd1_task, sizeof(sdd1_main), sizeof(sdd1_task)},
     };
@@ -99,35 +102,35 @@ bool shim_tgds_twl_touch(void *arm7, size_t size, bool apply)
     for (build = 0; build < sizeof(builds) / sizeof(builds[0]); ++build)
         if (size == builds[build].size) break;
     if (!p || build == sizeof(builds) / sizeof(builds[0])) return false;
-    size_t delta = builds[build].delta;
+    int delta = builds[build].delta;
     /* Check each complete affected routine, including literal pools, before
      * changing any byte. ARM7 relocates this image to 0x03800000 itself.
      */
-    if (crc32(p + 0x8AAC - delta, 0x670) != builds[build].main_crc ||
-        crc32(p + 0x920C - delta, 0x200) != builds[build].task_crc ||
-        crc32(p + 0x6C70 - delta, 0x14) != 0x03A9AAAF ||
-        crc32(p + 0x914C - delta, 0x60) != builds[build].mode_crc ||
-        crc32(p + 0xA0EC - delta, 0xDC) != 0xDEB3FD7E ||
+    if (crc32(p + 0x8AE8 + delta, 0x670) != builds[build].main_crc ||
+        crc32(p + 0x9248 + delta, 0x200) != builds[build].task_crc ||
+        crc32(p + 0x6CAC + delta, 0x14) != 0x03A9AAAF ||
+        crc32(p + 0x9188 + delta, 0x60) != builds[build].mode_crc ||
+        crc32(p + 0xA128 + delta, 0xDC) != 0xDEB3FD7E ||
         crc32(p + builds[build].vblank, 0x84) != builds[build].vblank_crc ||
-        crc32(p + builds[build].vcounter, builds[build].vcounter_size) != builds[build].vcounter_crc)
+        crc32(p + builds[build].vcounter, 0x78) != builds[build].vcounter_crc)
         return false;
     if (!apply) return true;
     for (unsigned i = 0; i < builds[build].main_size/4; ++i)
-        write32(p + 0x8AAC - delta + i*4, builds[build].main[i]);
+        write32(p + 0x8AE8 + delta + i*4, builds[build].main[i]);
     for (unsigned i = 0; i < builds[build].task_size/4; ++i)
-        write32(p + 0x920C - delta + i*4, builds[build].task[i]);
+        write32(p + 0x9248 + delta + i*4, builds[build].task[i]);
     /* Explicitly start 12-bit ADC conversions, enable pen detection, and use
      * the SPI data buffer with automatic updates. Do not preserve inherited
      * STOP / disable / hold bits that can leave the scanner inert. */
-    write32(p + 0xA104 - delta, 0xE3A020F8); /* mov r2,#0xf8 (mask) */
-    write32(p + 0xA10C - delta, 0xE3A03018); /* mov r3,#0x18 (value) */
-    write32(p + 0xA17C - delta, 0xE3A02087); /* pen disable + sense mask */
-    write32(p + 0xA1A4 - delta, 0xE3A020E7); /* buffer/hold/debounce mask */
+    write32(p + 0xA140 + delta, 0xE3A020F8); /* mov r2,#0xf8 (mask) */
+    write32(p + 0xA148 + delta, 0xE3A03018); /* mov r3,#0x18 (value) */
+    write32(p + 0xA1B8 + delta, 0xE3A02087); /* pen disable + sense mask */
+    write32(p + 0xA1E0 + delta, 0xE3A020E7); /* buffer/hold/debounce mask */
     /* Initialize the scanner before the first pen-down test, rather than
      * waiting for a detected press to initialize the hardware that detects it.
      * The original routine has already restored its stack: tail-call init.
      */
-    write32(p + 0x919C - delta, builds[build].branch); /* mode setup, then codec init */
+    write32(p + 0x91D8 + delta, builds[build].branch); /* mode setup, then codec init */
     /* The TGDS IRQ has just sampled the TWL codec. Preserve that result:
      * skip the later EXTKEYIN fallback, which overwrites its pen bit.
      * Leave the existing lid/backlight/sound sleep handling intact.

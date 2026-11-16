@@ -8,7 +8,7 @@
 
 int main(void)
 {
-    enum { SIZE = 0x5BCCC, SITE = 0x27500 };
+    enum { SIZE = 0x5BD64, SITE = 0x27598 };
     const uint32_t stock[] = {0xE59F3008, 0xE5D30535, 0xE2000007, 0xE12FFF1E, 0x02FFF0FF};
     unsigned char *image = calloc(1, SIZE), *before = malloc(SIZE);
     assert(image && before);
@@ -20,7 +20,7 @@ int main(void)
     assert(!shim_tgds_twl_language_patch(image, 0, 1, true));
     assert(!shim_tgds_twl_language_patch(image, SITE + sizeof(stock) - 1, 1, true));
     assert(!shim_tgds_twl_language_patch(image, SIZE - 1, 1, true));
-    assert(!shim_tgds_twl_language_patch(image, 0x5C328, 1, true)); /* NTR */
+    assert(!shim_tgds_twl_language_patch(image, 0x5C3C0, 1, true)); /* NTR */
     assert(!shim_tgds_twl_language_patch(image, SIZE, 8, true));
     assert(!shim_tgds_twl_language_patch(image, SIZE, (unsigned)-1, true));
     assert(!memcmp(image, before, SIZE));

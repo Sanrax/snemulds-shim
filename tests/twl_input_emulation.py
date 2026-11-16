@@ -14,7 +14,7 @@ ROOT=Path(__file__).resolve().parents[1]
 raw=Path(sys.argv[1]).read_bytes()
 profiles = {
     # ARM7 code shift, DSi flag, VcounterUser; all other modeled RAM is shared.
-    'f2817e29db1958af6af2957d0ac7ccfce01b5a57f78e522527d1d508c121b7a2': (0, 0x0380e790, 0x0380dcb0),
+    '83e3e4cd3e76a88ca089248eb375580d75cdff567aa490397aaf8dd07fc6812c': (0x3c, 0x0380e820, 0x0380dd10),
     '36b84c717692ec4c5ae1388c545292de6ca43bff4b881df553d4bffb440c99c2': (-0x80, 0x0380e530, 0x0380dc70),
     '34a4063c98b099c4dabdb99c7b60c5c55f002c493e8e65a44f9fc0cbfd685e50': (-0x120, 0x0380e370, 0x0380db34),
 }
@@ -130,26 +130,4 @@ for down in [False,True,False]:
     assert s['diags']==0 and u.mem_read(0x02100000,128)==b'Q'*128
     assert get32(u,0x02ffff18)==0x02100000 and get32(u,0x02ffff34)==0xffff022b
 print('PASS: L+R+SELECT passes through; no halt, exception-buffer writes or diagnostic FIFO message')
-if len(sys.argv)>2:
-    import json,zipfile
-    with zipfile.ZipFile(sys.argv[2]) as z:
-        patch=json.loads(z.read('snemulds-argv-shim-v0.9/tools/twl-input-v09.json'))
-    assert hashlib.sha256(raw).hexdigest()==patch['input_sha256']
-    baseline=bytearray(raw)
-    for part in patch['patches']:
-        a=part['offset'];data=bytes.fromhex(part['data']);baseline[a:a+len(data)]=data
-    assert hashlib.sha256(baseline).hexdigest()==patch['output_sha256']
-    old,os=machine(bytes(baseline[0x5fe00:0x5fe00+0xf784]))
-    new,ns=machine()
-    assert os['writes']==ns['writes']
-    for down,x,y,invalid in [(False,2000,2000,False),(True,2000,2000,False),
-                              (True,1200,2500,False),(True,1200,2500,True),
-                              (False,1200,2500,False),(True,1,4095,False)]:
-        for u,s in [(old,os),(new,ns)]:
-            s.update(down=down,x=x,y=y,invalid=invalid)
-            frame(u)
-        assert old.mem_read(0x02fff240,20)==new.mem_read(0x02fff240,20)
-        assert os['regs']==ns['regs'] and os['arrays']==ns['arrays']
-        assert old.mem_read(0x04000000,0x10000)==new.mem_read(0x04000000,0x10000)
-    print('PASS: normal input, codec writes and modeled hardware state match delivered v0.9')
 print('LIMIT: register/instruction model, not physical touch, audible output, cache behavior or frame timing.')

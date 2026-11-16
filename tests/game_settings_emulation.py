@@ -22,8 +22,8 @@ BASE = 0x02000000
 TITLE = 0x03001004
 SITE = 0x126AC
 HASHES = (
-    '09bc43aad372da4984155d77c24a30a8c0a8a668288aa834eeb0695f1359094b',
-    'f2817e29db1958af6af2957d0ac7ccfce01b5a57f78e522527d1d508c121b7a2',
+    '77f82df3437eff94d35951c673523f2acd964d1a0400555bae58a55b4362a472',
+    '83e3e4cd3e76a88ca089248eb375580d75cdff567aa490397aaf8dd07fc6812c',
 )
 
 
@@ -48,10 +48,10 @@ def run_calls(arm9):
             title = bytes(uc.mem_read(uc.reg_read(UC_ARM_REG_R0), 21)).split(b'\0')[0].decode()
             uc.mem_write(0x03002000, struct.pack('<I', settings[title]))
             events.append(('read', title))
-        elif address == BASE + 0x1E204:
+        elif address == BASE + 0x1E2A0:
             value = u32(uc.mem_read(0x03002000, 4), 0)
             events.append(('gui', uc.reg_read(UC_ARM_REG_R0), value))
-        elif address == BASE + 0x1AD20:
+        elif address == BASE + 0x1ADBC:
             events.append(('reset',))
         elif address == BASE + 0x12400:
             events.append(('sram',))

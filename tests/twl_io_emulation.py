@@ -29,32 +29,39 @@ def p32(n): return struct.pack('<I', n & 0xffffffff)
 def read32(uc, addr): return u32(uc.mem_read(addr, 4))
 
 raw = Path(sys.argv[1]).read_bytes()
-assert hashlib.sha256(raw).hexdigest() == 'f2817e29db1958af6af2957d0ac7ccfce01b5a57f78e522527d1d508c121b7a2'
+assert hashlib.sha256(raw).hexdigest() == '83e3e4cd3e76a88ca089248eb375580d75cdff567aa490397aaf8dd07fc6812c'
 driver = Path(sys.argv[2]).read_bytes()
 assert driver[0x60:0x64] == b'PICO' and driver[14] == 0, 'Expected PICO position-independent driver'
-arm9 = raw[0x4000:0x4000+0x5bccc]
-arm7 = bytearray(raw[0x5fe00:0x5fe00+0xf784])
-arm7[0x6514:0x6518] = p32(0xea00000b)
+offset, _, _, size = struct.unpack_from('<4I', raw, 0x20)
+arm9 = raw[offset:offset+size]
+offset, _, _, size = struct.unpack_from('<4I', raw, 0x30)
+arm7 = bytearray(raw[offset:offset+size])
 
 with tempfile.TemporaryDirectory() as tmp:
     so = Path(tmp)/'patch.so'
     subprocess.run(['cc','-std=c11','-Wall','-Wextra','-Werror','-shared','-fPIC',
-                    '-I'+str(ROOT/'include'),str(ROOT/'source/tgds_io.c'),'-o',str(so)],check=True)
+                    '-I'+str(ROOT/'include'),str(ROOT/'source/tgds_io.c'),
+                    str(ROOT/'source/tgds_patch.c'),'-o',str(so)],check=True)
     lib = ctypes.CDLL(str(so))
+    dldi = lib.shim_tgds_dldi_patch_offset
+    dldi.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
+    dldi.restype = ctypes.c_size_t
+    assert dldi(bytes(arm7), len(arm7)) == 0x6550
+    arm7[0x6550:0x6554] = p32(0xea00000b)
     patch = lib.shim_tgds_dspico_io
     patch.argtypes = [ctypes.c_void_p,ctypes.c_size_t,ctypes.c_bool]
     patch.restype = ctypes.c_bool
     data = ctypes.create_string_buffer(arm9,len(arm9))
     assert patch(data,len(arm9),False) and data.raw == arm9
     assert not patch(data,len(arm9)-1,True) and data.raw == arm9
-    for off in [0x518cc,0x51a00,0x51a60,0x51be0,0x51bf0,0x232d0,0x1841]:
+    for off in [0x51964,0x51a98,0x51af8,0x51c78,0x51c88,0x2336c,0x1841]:
         bad = bytearray(arm9); bad[off] ^= 1
         buf = ctypes.create_string_buffer(bytes(bad),len(bad))
         assert not patch(buf,len(bad),True) and buf.raw == bad
     assert patch(data,len(arm9),True)
     patched = data.raw
     assert not patch(data,len(arm9),True) and data.raw == patched
-    allowed = set(range(0x518cc,0x518cc+84)) | set(range(0x51a60,0x51a60+84)) | set(range(0x232d0,0x232d4))
+    allowed = set(range(0x51964,0x51964+84)) | set(range(0x51af8,0x51af8+84)) | set(range(0x2336c,0x23370))
     assert all(i in allowed or a == b for i,(a,b) in enumerate(zip(arm9,patched)))
     touch_patch = lib.shim_tgds_twl_touch
     touch_patch.argtypes = patch.argtypes
@@ -62,7 +69,7 @@ with tempfile.TemporaryDirectory() as tmp:
     original_touch = bytes(arm7)
     buf = ctypes.create_string_buffer(original_touch,len(arm7))
     assert touch_patch(buf,len(arm7),False) and buf.raw == original_touch
-    for off in [0x6c70,0x8aac,0x9100,0x920c,0x9408,0x914c,0x919c,0xa0ec,0xa1c4,0xdc28,0xdc8c,0xdcb4,0xdd08]:
+    for off in [0x6cac,0x8ae8,0x913c,0x9248,0x9444,0x9188,0x91d8,0xa128,0xa200,0xdc88,0xdcec,0xdd14,0xdd84]:
         bad = bytearray(original_touch); bad[off] ^= 1
         test = ctypes.create_string_buffer(bytes(bad),len(bad))
         assert not touch_patch(test,len(bad),True) and test.raw == bad
@@ -70,9 +77,9 @@ with tempfile.TemporaryDirectory() as tmp:
     assert touch_patch(buf,len(arm7),True)
     fixed_touch = buf.raw
     changed = {i for i,(a,b) in enumerate(zip(original_touch,fixed_touch)) if a!=b}
-    allowed_touch = set(range(0x919c,0x91a0)) | set(range(0xdc8c,0xdc90)) | set(range(0xdcb4,0xdcb8))
-    allowed_touch |= set(range(0x8aac,0x911c)) | set(range(0x920c,0x940c)) | set(range(0x6c70,0x6c74))
-    for off in [0xa104,0xa10c,0xa17c,0xa1a4]: allowed_touch |= set(range(off,off+4))
+    allowed_touch = set(range(0x91d8,0x91dc)) | set(range(0xdcec,0xdcf0)) | set(range(0xdd14,0xdd18))
+    allowed_touch |= set(range(0x8ae8,0x9158)) | set(range(0x9248,0x9448)) | set(range(0x6cac,0x6cb0))
+    for off in [0xa140,0xa148,0xa1b8,0xa1e0]: allowed_touch |= set(range(off,off+4))
     assert changed <= allowed_touch
     assert not touch_patch(buf,len(arm7),True) and buf.raw == fixed_touch
 
@@ -105,11 +112,11 @@ for base in [DONOR,0x06000000]:
     uc = machine(base)
     uc.mem_write(0x02ffdfe8,p32(DONOR))
     def setup_hook(uc,addr,size,user):
-        if addr in [0x0380e3d0,0x038095dc]:
+        if addr in [0x0380e464,0x03809618]:
             uc.reg_write(UC_ARM_REG_R0,4)
             uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
     uc.hook_add(UC_HOOK_CODE,setup_hook)
-    assert call(uc,0x038064c0,[0,0,0x06000000])==1
+    assert call(uc,0x038064fc,[0,0,0x06000000])==1
     assert read32(uc,0x02ffdfe8)==0xffffff02
 print('PASS: actual TGDS ARM7 initialization with v0.3 and v0.4 donor addresses')
 
@@ -165,12 +172,12 @@ for count in [1,2,64]:
             uc.mem_write(0x04000204,struct.pack('<H',0xE8C0))
             uc.mem_write(0x04000208,p32(ime))
             for reg in saved_regs: uc.reg_write(reg,0xabc00000+reg)
-            assert call(uc,0x020518cc,[37,count,buffer])==1
+            assert call(uc,0x02051964,[37,count,buffer])==1
             expected=b''.join(sector_data(37+i) for i in range(count))
             assert uc.mem_read(buffer,len(expected))==expected
             assert card.commands.count(0xe5)==count
             # Real writeSectors code, including unaligned transfers and flags.
-            assert call(uc,0x02051a60,[91,count,buffer])==1
+            assert call(uc,0x02051af8,[91,count,buffer])==1
             assert b''.join(card.disk[91+i] for i in range(count))==expected
             assert card.commands.count(0xf6)==count
             assert bool(card.irq_opportunities)==bool(ime)
@@ -181,7 +188,7 @@ for count in [1,2,64]:
 print(f'PASS: {cases} real DSpico read/write cases, aligned/unaligned and extended RAM')
 
 # Driver-reported failures must be returned, while restoring caller state.
-for entry,fn in [(0x020518cc,0x70),(0x02051a60,0x74)]:
+for entry,fn in [(0x02051964,0x70),(0x02051af8,0x74)]:
     uc=machine(); uc.mem_write(0x02180000,p32(0xe3a00000)+p32(0xe12fff1e))
     uc.mem_write(DONOR+fn,p32(0x02180000))
     uc.mem_write(0x04000204,struct.pack('<H',0xE8C0)); uc.mem_write(0x04000208,p32(1))
@@ -194,16 +201,16 @@ print('PASS: failure propagation, register preservation, and patch rejection wit
 for result in [0,1,3,13]:
     uc=machine(); uc.mem_write(0x027ff05d,b'\x57'); errors=[]
     def fs_hook(uc,addr,size,user):
-        if addr==0x02023204:  # initTGDS, unrelated device-table setup
+        if addr==0x020232a0:  # initTGDS, unrelated device-table setup
             uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
-        elif addr==0x02021800:  # f_mount outcome supplied by the test
+        elif addr==0x0202189c:  # f_mount outcome supplied by the test
             uc.reg_write(UC_ARM_REG_R0,result)
             uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
-        elif addr==0x02026c20:  # capture handleDSInitError arguments
+        elif addr==0x02026cb8:  # capture handleDSInitError arguments
             errors.append((uc.reg_read(UC_ARM_REG_R0),uc.reg_read(UC_ARM_REG_R1)))
             uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
     uc.hook_add(UC_HOOK_CODE,fs_hook)
-    assert call(uc,0x020232a8,[0,0,0])==result
+    assert call(uc,0x02023344,[0,0,0])==result
     assert errors==([] if result==0 else [(256+result,0x57)])
 print('PASS: actual FS_init success path and diagnostic stages 257/259/269')
 
@@ -214,16 +221,16 @@ def touch_machine(code):
     uc=machine(); uc.mem_write(0x03800000,code)
     uc.mem_write(0x04000130,struct.pack('<H',0x3ff))
     uc.mem_write(0x04000136,struct.pack('<H',3)) # DSi legacy pen bit always 0
-    uc.mem_write(u32(code,0x91a4),b'\x01\x01') # useTWLTSC, sampling enabled
+    uc.mem_write(u32(code,0x91e0),b'\x01\x01') # useTWLTSC, sampling enabled
     state={'down':False,'inits':0,'sleep':[]}
     def hooks(uc,addr,size,user):
-        if addr==0x03808a5c: # touchPenDown: supplied physical pen state
+        if addr==0x03808a98: # touchPenDown: supplied physical pen state
             uc.reg_write(UC_ARM_REG_R0,int(state['down']))
-        elif addr==0x03808aac: # touchReadXY: supplied calibrated measurement
+        elif addr==0x03808ae8: # touchReadXY: supplied calibrated measurement
             uc.mem_write(uc.reg_read(UC_ARM_REG_R0),struct.pack('<6H',1500,2300,96,120,0,0))
-        elif addr==0x0380a0ec: # observe eager scanner initialization
+        elif addr==0x0380a128: # observe eager scanner initialization
             state['inits']+=1
-        elif addr in [0x038098a4,0x03807f4c]: # observe existing lid handling
+        elif addr in [0x038098e0,0x03807f88]: # observe existing lid handling
             state['sleep'].append((addr,uc.reg_read(UC_ARM_REG_R0)))
         else: return
         uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
@@ -233,13 +240,13 @@ def touch_machine(code):
 # Stock overwrites a pen-UP result with EXTKEYIN's permanently low DSi bit.
 for code,is_fixed in [(original_touch,False),(fixed_touch,True)]:
     uc,state=touch_machine(code)
-    call(uc,0x0380914c,[])
+    call(uc,0x03809188,[])
     assert state['inits']==int(is_fixed)
     for down in [False,True,True,False,True,False]:
         state['down']=down
-        call(uc,0x0380920c,[0])
+        call(uc,0x03809248,[0])
         before=u32(uc.mem_read(0x02fff240,2)+b'\0\0')
-        call(uc,0x0380dcb0,[])
+        call(uc,0x0380dd10,[])
         after=u32(uc.mem_read(0x02fff240,2)+b'\0\0')
         if is_fixed:
             assert before==after
@@ -247,18 +254,18 @@ for code,is_fixed in [(original_touch,False),(fixed_touch,True)]:
         elif not down:
             assert before&0x40 and not (after&0x40), 'Reproduce stock overwrite'
     # Simulate the old inactivity timeout with audio active and TSC active.
-    uc.mem_write(u32(code,0xdca4),b'\0') # SPC_disable
-    uc.mem_write(u32(code,0xdca8),p32(600)) # touchscreenTimeoutCounter
-    uc.mem_write(u32(code,0xdcac),b'\x01') # TSCKeyActive
+    uc.mem_write(u32(code,0xdd04),b'\0') # SPC_disable
+    uc.mem_write(u32(code,0xdd08),p32(600)) # touchscreenTimeoutCounter
+    uc.mem_write(u32(code,0xdd0c),b'\x01') # TSCKeyActive
     # Clear the shared input and key edge state by sampling release.
-    state['down']=False; call(uc,0x0380920c,[0])
-    call(uc,0x0380dc28,[])
-    assert bool(uc.mem_read(u32(code,0x941c)+1,1)[0])==is_fixed
+    state['down']=False; call(uc,0x03809248,[0])
+    call(uc,0x0380dc88,[])
+    assert bool(uc.mem_read(u32(code,0x9458)+1,1)[0])==is_fixed
     # The original lid handling still dims the screen and silences the mixer.
     uc.mem_write(0x02fff240,struct.pack('<H',0xc3))
-    uc.mem_write(u32(code,0xdcac),b'\x01')
-    call(uc,0x0380dcb0,[])
-    assert state['sleep']==[(0x038098a4,0),(0x03807f4c,0)]
+    uc.mem_write(u32(code,0xdd0c),b'\x01')
+    call(uc,0x0380dd10,[])
+    assert state['sleep']==[(0x038098e0,0),(0x03807f88,0)]
 print('PASS: reproduced stock pen overwrite; fixed press/release, eager init, timeout and lid handling')
 
 # Execute the exact compiled handoff function from the loader, not a C model.

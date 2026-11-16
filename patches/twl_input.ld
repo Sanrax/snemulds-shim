@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 ENTRY(touchReadXY)
-PROVIDE(cdcTouchRead = 0x0380a22c);
-PROVIDE(cdcTouchInit = 0x0380a0ec);
-PROVIDE(touchPenDown = 0x03808a5c);
-PROVIDE(__aeabi_idiv = 0x0380e414);
-PROVIDE(patchMain = 0x03808aac);
-PROVIDE(patchTask = 0x0380920c);
+PROVIDE(cdcTouchRead = 0x0380a268);
+PROVIDE(cdcTouchInit = 0x0380a128);
+PROVIDE(touchPenDown = 0x03808a98);
+PROVIDE(__aeabi_idiv = 0x0380e4a8);
+PROVIDE(patchMain = 0x03808ae8);
+PROVIDE(patchTask = 0x03809248);
 SECTIONS {
     .main patchMain : {
         *(.entry) *(.text*) *(.rodata*) *(.data*) *(.bss*) *(COMMON)

@@ -24,8 +24,8 @@ ROOT = Path(__file__).resolve().parents[1]
 BASE = 0x02000000
 RETURN = 0x02fff100
 HASHES = (
-    '09bc43aad372da4984155d77c24a30a8c0a8a668288aa834eeb0695f1359094b',
-    'f2817e29db1958af6af2957d0ac7ccfce01b5a57f78e522527d1d508c121b7a2',
+    '77f82df3437eff94d35951c673523f2acd964d1a0400555bae58a55b4362a472',
+    '83e3e4cd3e76a88ca089248eb375580d75cdff567aa490397aaf8dd07fc6812c',
 )
 
 
@@ -65,11 +65,11 @@ def run_selection(arm9, system_language, config_language, remap):
     uc = Uc(UC_ARCH_ARM, UC_MODE_ARM)
     uc.mem_map(BASE, 0x1000000)
     uc.mem_write(BASE, arm9)
-    firmware = target(arm9, 0x1c178)
-    init = target(arm9, 0x1c174)
-    clear = target(arm9, 0x1c184)
-    config_reader = target(arm9, 0x1e1c0)
-    gui_string = u32(arm9, 0x1c13c) + 0x28
+    firmware = target(arm9, 0x1c214)
+    init = target(arm9, 0x1c210)
+    clear = target(arm9, 0x1c220)
+    config_reader = target(arm9, 0x1e25c)
+    gui_string = u32(arm9, 0x1c1d8) + 0x28
     # TGDS fills its high IPC buffer before shrinking RAM. Model only the
     # affected page's alias change; the low page still has zero at +0x634.
     uc.mem_write(0x02fff634, bytes([system_language | 0xf8]))
@@ -95,10 +95,10 @@ def run_selection(arm9, system_language, config_language, remap):
 
     call(firmware)
     detected = uc.reg_read(UC_ARM_REG_R0)
-    call(BASE + 0x1c09c)  # initial GUI_setLanguage(getLanguage())
-    call(BASE + 0x1e194)  # actual GUI_getConfig, including Language == -1
+    call(BASE + 0x1c138)  # initial GUI_setLanguage(getLanguage())
+    call(BASE + 0x1e230)  # actual GUI_getConfig, including Language == -1
     selections = [u32(uc.mem_read(gui_string, 4), 0)]
-    for entry in (BASE + 0x1c16c, BASE + 0x1c188):
+    for entry in (BASE + 0x1c208, BASE + 0x1c224):
         call(entry)
         selections.append(u32(uc.mem_read(gui_string, 4), 0))
     return detected, selections
@@ -106,9 +106,9 @@ def run_selection(arm9, system_language, config_language, remap):
 
 def check_system(arm9, fixed, system_patch, twl):
     # These literal-pool entries name the stock translation tables.
-    tables = {0: 0x1c148, 1: 0x1c168, 2: 0x1c144, 3: 0x1c14c,
-              4: 0x1c150, 5: 0x1c140, 106: 0x1c158, 107: 0x1c15c,
-              108: 0x1c154, 109: 0x1c160, 110: 0x1c164}
+    tables = {0: 0x1c1e4, 1: 0x1c204, 2: 0x1c1e0, 3: 0x1c1e8,
+              4: 0x1c1ec, 5: 0x1c1dc, 106: 0x1c1f4, 107: 0x1c1f8,
+              108: 0x1c1f0, 109: 0x1c1fc, 110: 0x1c200}
     data = ctypes.create_string_buffer(fixed, len(fixed))
     if not twl:
         assert not system_patch(data, len(fixed), 1, True) and data.raw == fixed
@@ -121,8 +121,8 @@ def check_system(arm9, fixed, system_patch, twl):
         if twl:
             assert system_patch(data, len(fixed), language, False) and data.raw == fixed
             assert system_patch(data, len(fixed), language, True)
-            assert data.raw[:0x27500] == fixed[:0x27500]
-            assert data.raw[0x27508:] == fixed[0x27508:]
+            assert data.raw[:0x27598] == fixed[:0x27598]
+            assert data.raw[0x275a0:] == fixed[0x275a0:]
         for remap in ((False, True) if twl else (False,)):
             for config in (-1, *tables):
                 selected = language if config == -1 else config
@@ -144,26 +144,26 @@ def check(path, expected_hash, patch, system_patch, twl):
     fixed = data.raw
     assert not patch(data, len(arm9), False)
     changed = {i for i, (a, b) in enumerate(zip(arm9, fixed)) if a != b}
-    assert changed == set(range(0x1c17c, 0x1c180)) | set(range(0x1c198, 0x1c19c))
-    assert u32(fixed, 0x1c17c) == u32(fixed, 0x1c198) == 0xe1a00000
+    assert changed == set(range(0x1c218, 0x1c21c)) | set(range(0x1c234, 0x1c238))
+    assert u32(fixed, 0x1c218) == u32(fixed, 0x1c234) == 0xe1a00000
     assert not patch(data, len(arm9), True) and data.raw == fixed
     bad = bytearray(arm9)
-    bad[0x1c16c] ^= 1
+    bad[0x1c208] ^= 1
     rejected = ctypes.create_string_buffer(bytes(bad), len(bad))
     assert not patch(rejected, len(bad), True) and rejected.raw == bad
 
-    init = target(arm9, 0x1c174)
-    firmware = target(arm9, 0x1c178)
-    clear = target(arm9, 0x1c184)
-    assert target(arm9, 0x1c17c) == target(arm9, 0x1c198) == BASE + 0x1c09c
-    assert target(arm9, 0x1c190) == init
-    assert target(arm9, 0x1c194) == firmware
-    assert target(arm9, 0x1c1a0) == clear
-    gui_string = u32(arm9, 0x1c13c) + 0x28
-    english = u32(arm9, 0x1c168)
-    japanese = u32(arm9, 0x1c148)
+    init = target(arm9, 0x1c210)
+    firmware = target(arm9, 0x1c214)
+    clear = target(arm9, 0x1c220)
+    assert target(arm9, 0x1c218) == target(arm9, 0x1c234) == BASE + 0x1c138
+    assert target(arm9, 0x1c22c) == init
+    assert target(arm9, 0x1c230) == firmware
+    assert target(arm9, 0x1c23c) == clear
+    gui_string = u32(arm9, 0x1c1d8) + 0x28
+    english = u32(arm9, 0x1c204)
+    japanese = u32(arm9, 0x1c1e4)
     assert english != japanese
-    for entry in (BASE + 0x1c16c, BASE + 0x1c188):
+    for entry in (BASE + 0x1c208, BASE + 0x1c224):
         assert run_switch(arm9, entry, english, init, firmware, clear, gui_string) == japanese
         assert run_switch(fixed, entry, english, init, firmware, clear, gui_string) == english
     check_system(arm9, fixed, system_patch, twl)
