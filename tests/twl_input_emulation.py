@@ -12,8 +12,15 @@ from unicorn import Uc, UC_ARCH_ARM, UC_MODE_ARM, UC_HOOK_CODE, UC_HOOK_MEM_WRIT
 from unicorn.arm_const import *
 ROOT=Path(__file__).resolve().parents[1]
 raw=Path(sys.argv[1]).read_bytes()
-assert hashlib.sha256(raw).hexdigest()=='f2817e29db1958af6af2957d0ac7ccfce01b5a57f78e522527d1d508c121b7a2'
-original=raw[0x5fe00:0x5fe00+0xf784]
+profiles = {
+    # ARM7 code shift, DSi flag, VcounterUser; all other modeled RAM is shared.
+    'f2817e29db1958af6af2957d0ac7ccfce01b5a57f78e522527d1d508c121b7a2': (0, 0x0380e790, 0x0380dcb0),
+    '36b84c717692ec4c5ae1388c545292de6ca43bff4b881df553d4bffb440c99c2': (-0x80, 0x0380e530, 0x0380dc70),
+    '34a4063c98b099c4dabdb99c7b60c5c55f002c493e8e65a44f9fc0cbfd685e50': (-0x120, 0x0380e370, 0x0380db34),
+}
+delta, dsi_flag, vcounter = profiles[hashlib.sha256(raw).hexdigest()]
+arm7_offset, _, _, arm7_size = struct.unpack_from('<4I', raw, 0x30)
+original=raw[arm7_offset:arm7_offset+arm7_size]
 with tempfile.TemporaryDirectory() as tmp:
     so=Path(tmp)/'patch.so'
     subprocess.run(['cc','-shared','-fPIC','-I'+str(ROOT/'include'),str(ROOT/'source/tgds_io.c'),'-o',str(so)],check=True)
@@ -36,7 +43,7 @@ def call(u,entry,*args):
 def machine(image=code,cal=True):
     u=Uc(UC_ARCH_ARM,UC_MODE_ARM)
     for a,s in [(0x02000000,0x1000000),(0x03800000,0x10000),(0x04000000,0x10000),(0x06000000,0x20000)]:u.mem_map(a,s)
-    u.mem_write(0x03800000,image);u.mem_write(0x0380e790,b'\x01')
+    u.mem_write(0x03800000,image);u.mem_write(dsi_flag,b'\x01')
     put16(u,0x04000130,0x3ff);put16(u,0x04000136,3);put32(u,0x04000208,1)
     if cal: # Known two-point firmware data at TGDS PersonalData+0x58.
         u.mem_write(0x02fff628,struct.pack('<HHBBHHBB',400,600,20,30,3600,3400,236,162))
@@ -47,6 +54,7 @@ def machine(image=code,cal=True):
         if (bank,reg)==(3,0xe):return (state['regs'].get((bank,reg),0)&~2)|(0 if state['down'] else 2)
         return state['regs'].get((bank,reg),0)
     def hook(u,a,size,user):
+        a -= delta  # Codec/exception routines share one relocation in these builds.
         r=[u.reg_read(x) for x in [UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2,UC_ARM_REG_R3]]
         if a==0x03809e08: state['bank']=r[0] # codec bank select
         elif a==0x03809d9c:u.reg_write(UC_ARM_REG_R0,regread(state['bank'],r[0]))
@@ -67,12 +75,12 @@ def machine(image=code,cal=True):
         else:return
         u.reg_write(UC_ARM_REG_PC,u.reg_read(UC_ARM_REG_LR))
     u.hook_add(UC_HOOK_CODE,hook)
-    call(u,0x0380914c) # actual mode command and eager init
+    call(u,0x0380914c+delta) # actual mode command and eager init
     return u,state
 
 # The old init leaves stopped conversions; the patched init clears exactly
 # documented stop/disable/hold controls, while keeping filter bits intact.
-u,old=machine(original);call(u,0x0380a0ec)
+u,old=machine(original);call(u,0x0380a0ec+delta)
 assert old['regs'][3,2]&0x80 and old['regs'][3,4]&0x80 and old['regs'][3,0x12]&0xe0
 u,s=machine()
 assert s['regs'][3,2]==0x18 and s['regs'][3,4]==0x46 and s['regs'][3,0x12]==0
@@ -80,9 +88,9 @@ assert all(bank==3 for bank,_,_ in s['writes']), 'Touch init must not alter audi
 print('PASS: stock preserves stop/disable/hold; actual patched init clears them')
 
 def frame(u):
-    call(u,0x0380920c,0)
+    call(u,0x0380920c+delta,0)
     before=get16(u,0x02fff240)
-    call(u,0x0380dcb0)
+    call(u,vcounter)
     assert get16(u,0x02fff240)==before
     return struct.unpack('<6H',u.mem_read(0x02fff248,12))
 
@@ -105,13 +113,13 @@ print('PASS: missing firmware calibration uses bounded approximate coordinates, 
 
 # The diagnostic path is removed. The old combo must act as ordinary input
 # without touching PCM, audio controls, FIFO commands or the exception buffer.
-assert code[0x6c70:0x6c84] == original[0x6c70:0x6c84]
+assert code[0x6c70+delta:0x6c84+delta] == original[0x6c70+delta:0x6c84+delta]
 u,s=machine()
 put32(u,0x0380ffdc,0x12345678)
-call(u,0x0380914c)
+call(u,0x0380914c+delta)
 assert get32(u,0x0380ffdc)==0 # same mode-entry behavior as hardware-tested v0.9
 put32(u,0x02ffff18,0x02100000);put32(u,0x02ffff34,0xffff022b)
-call(u,0x03806c70) # unchanged original handler-disable routine
+call(u,0x03806c70+delta) # unchanged original handler-disable routine
 u.mem_write(0x02100000,b'Q'*128)
 for down in [False,True,False]:
     s['down']=down

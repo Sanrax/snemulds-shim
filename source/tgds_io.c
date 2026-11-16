@@ -38,11 +38,23 @@ static const uint32_t direct_io[] = {
 bool shim_tgds_dspico_io(void *arm9, size_t size, bool apply)
 {
     unsigned char *p = arm9;
-    const size_t offsets[2] = {0x518CC, 0x51A60};
-    if (!p || size != 0x5BCCC ||
-        crc32(p + offsets[0], 0x194) != 0xDAB01983 ||
-        crc32(p + offsets[1], 0x194) != 0xA9BE5C37 ||
-        crc32(p + 0x232A8, 0x4C) != 0x0DAD4FE0 ||
+    static const struct {
+        size_t size, read, fs;
+        uint32_t read_crc, write_crc, fs_crc;
+    } builds[] = {
+        {0x5BCCC, 0x518CC, 0x232A8, 0xDAB01983, 0xA9BE5C37, 0x0DAD4FE0},
+        {0x6608C, 0x5BBBC, 0x240E0, 0x0356C755, 0xCD2F668E, 0x9192D29B},
+        {0x57628, 0x4D038, 0x1FE2C, 0xF90A7883, 0x3C306CC2, 0xAEEDC9A5},
+    };
+    unsigned build;
+    for (build = 0; build < sizeof(builds) / sizeof(builds[0]); ++build)
+        if (size == builds[build].size) break;
+    if (!p || build == sizeof(builds) / sizeof(builds[0])) return false;
+    const size_t offsets[2] = {builds[build].read, builds[build].read + 0x194};
+    size_t fs = builds[build].fs;
+    if (crc32(p + offsets[0], 0x194) != builds[build].read_crc ||
+        crc32(p + offsets[1], 0x194) != builds[build].write_crc ||
+        crc32(p + fs, 0x4C) != builds[build].fs_crc ||
         p[0x1840] != 0 || p[0x1841] != 0x18 ||
         p[0x1842] != 0 || p[0x1843] != 2)
         return false;
@@ -58,50 +70,72 @@ bool shim_tgds_dspico_io(void *arm9, size_t size, bool apply)
      * r4 holds f_mount's result. Success branches around this instruction.
      * add r0,r4,#256, replacing mov r0,#1. No error is bypassed.
      */
-    write32(p + 0x232D0, 0xE2840C01);
+    /* Keep the stable build's existing diagnostic; alternate builds only
+     * need the sector routing changes above. */
+    if (size == 0x5BCCC) write32(p + fs + 0x28, 0xE2840C01);
     return true;
 }
 
 bool shim_tgds_twl_touch(void *arm7, size_t size, bool apply)
 {
     unsigned char *p = arm7;
+    static const struct {
+        size_t size, delta, vblank, vcounter, vcounter_size;
+        uint32_t main_crc, task_crc, mode_crc, vblank_crc, vcounter_crc, branch;
+        const uint32_t *main, *task;
+        size_t main_size, task_size;
+    } builds[] = {
+        {0xF784, 0, 0xDC28, 0xDCB0, 0x5C,
+         0x2EE96C2C, 0x58AA18F0, 0x98769A97, 0x02A917B0, 0xE51A8EB8, TWL_MODE_BRANCH,
+         twl_main, twl_task, sizeof(twl_main), sizeof(twl_task)},
+        {0xF6C0, 0x80, 0xDBE8, 0xDC70, 0x78,
+         0xB5F69E50, 0x60083B9D, 0x853E61EB, 0x015D96B8, 0x8E5D01F3, DSP_MODE_BRANCH,
+         dsp_main, dsp_task, sizeof(dsp_main), sizeof(dsp_task)},
+        {0xF4F4, 0x120, 0xDAAC, 0xDB34, 0x78,
+         0xE894443C, 0xFF911F12, 0x17A5EB8F, 0x428BAA4D, 0xCB8B504D, SDD1_MODE_BRANCH,
+         sdd1_main, sdd1_task, sizeof(sdd1_main), sizeof(sdd1_task)},
+    };
+    unsigned build;
+    for (build = 0; build < sizeof(builds) / sizeof(builds[0]); ++build)
+        if (size == builds[build].size) break;
+    if (!p || build == sizeof(builds) / sizeof(builds[0])) return false;
+    size_t delta = builds[build].delta;
     /* Check each complete affected routine, including literal pools, before
      * changing any byte. ARM7 relocates this image to 0x03800000 itself.
      */
-    if (!p || size != 0xF784 ||
-        crc32(p + 0x8AAC, 0x670) != 0x2EE96C2C || /* touchReadXY */
-        crc32(p + 0x920C, 0x200) != 0x58AA18F0 || /* taskARM7TouchScreen */
-        crc32(p + 0x6C70, 0x14) != 0x03A9AAAF || /* disabled exception setup */
-        crc32(p + 0x914C, 0x60) != 0x98769A97 || /* TWLSetTouchscreenTWLMode */
-        crc32(p + 0xA0EC, 0xDC) != 0xDEB3FD7E || /* cdcTouchInit tail target */
-        crc32(p + 0xDC28, 0x84) != 0x02A917B0 || /* VblankUser */
-        crc32(p + 0xDCB0, 0x5C) != 0xE51A8EB8)   /* VcounterUser */
+    if (crc32(p + 0x8AAC - delta, 0x670) != builds[build].main_crc ||
+        crc32(p + 0x920C - delta, 0x200) != builds[build].task_crc ||
+        crc32(p + 0x6C70 - delta, 0x14) != 0x03A9AAAF ||
+        crc32(p + 0x914C - delta, 0x60) != builds[build].mode_crc ||
+        crc32(p + 0xA0EC - delta, 0xDC) != 0xDEB3FD7E ||
+        crc32(p + builds[build].vblank, 0x84) != builds[build].vblank_crc ||
+        crc32(p + builds[build].vcounter, builds[build].vcounter_size) != builds[build].vcounter_crc)
         return false;
     if (!apply) return true;
-    for (unsigned i = 0; i < sizeof(twl_main)/4; ++i)
-        write32(p + 0x8AAC + i*4, twl_main[i]);
-    for (unsigned i = 0; i < sizeof(twl_task)/4; ++i)
-        write32(p + 0x920C + i*4, twl_task[i]);
+    for (unsigned i = 0; i < builds[build].main_size/4; ++i)
+        write32(p + 0x8AAC - delta + i*4, builds[build].main[i]);
+    for (unsigned i = 0; i < builds[build].task_size/4; ++i)
+        write32(p + 0x920C - delta + i*4, builds[build].task[i]);
     /* Explicitly start 12-bit ADC conversions, enable pen detection, and use
      * the SPI data buffer with automatic updates. Do not preserve inherited
      * STOP / disable / hold bits that can leave the scanner inert. */
-    write32(p + 0xA104, 0xE3A020F8); /* mov r2,#0xf8 (mask) */
-    write32(p + 0xA10C, 0xE3A03018); /* mov r3,#0x18 (value) */
-    write32(p + 0xA17C, 0xE3A02087); /* pen disable + sense mask */
-    write32(p + 0xA1A4, 0xE3A020E7); /* buffer/hold/debounce mask */
+    write32(p + 0xA104 - delta, 0xE3A020F8); /* mov r2,#0xf8 (mask) */
+    write32(p + 0xA10C - delta, 0xE3A03018); /* mov r3,#0x18 (value) */
+    write32(p + 0xA17C - delta, 0xE3A02087); /* pen disable + sense mask */
+    write32(p + 0xA1A4 - delta, 0xE3A020E7); /* buffer/hold/debounce mask */
     /* Initialize the scanner before the first pen-down test, rather than
      * waiting for a detected press to initialize the hardware that detects it.
      * The original routine has already restored its stack: tail-call init.
      */
-    write32(p + 0x919C, TWL_MODE_BRANCH); /* preserve mode setup, then codec init */
+    write32(p + 0x919C - delta, builds[build].branch); /* mode setup, then codec init */
     /* The TGDS IRQ has just sampled the TWL codec. Preserve that result:
      * skip the later EXTKEYIN fallback, which overwrites its pen bit.
      * Leave the existing lid/backlight/sound sleep handling intact.
      */
-    write32(p + 0xDCB4, 0xEA000007); /* b 0x0380DCD8 */
+    write32(p + builds[build].vcounter + 4, 0xEA000007); /* skip EXTKEYIN fallback */
     /* Keep codec sampling active past the old 600-frame timeout; otherwise
      * the removed DS-only fallback cannot wake a disabled TWL touchscreen.
      */
-    write32(p + 0xDC8C, 0xE1A00000); /* nop instead of disableARM7TouchScreen */
+    write32(p + builds[build].vblank + 0x64, 0xE1A00000); /* skip disableARM7TouchScreen */
     return true;
 }

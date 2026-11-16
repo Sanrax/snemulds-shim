@@ -3,6 +3,8 @@
 #include "tgds_language.h"
 #include "tgds_settings.h"
 
+static uint32_t crc32(const unsigned char *p, size_t n);
+
 static uint32_t read32(const unsigned char *p)
 {
     return (uint32_t)p[0] | (uint32_t)p[1] << 8 |
@@ -124,7 +126,7 @@ bool shim_tgds_language_patch(void *arm9, size_t size, bool apply)
  */
 bool shim_tgds_twl_language_patch(void *arm9, size_t size, unsigned language, bool apply)
 {
-    enum { SITE = 0x27500 };
+    size_t site;
     static const uint32_t stock[] = {
         0xE59F3008, /* ldr r3, [pc, #8] */
         0xE5D30535, /* ldrb r0, [r3, #0x535] */
@@ -133,12 +135,16 @@ bool shim_tgds_twl_language_patch(void *arm9, size_t size, unsigned language, bo
         0x02FFF0FF
     };
     unsigned char *p = arm9;
-    if (!p || size != 0x5BCCC || language > 7) return false;
+    if (!p || language > 7) return false;
+    if (size == 0x5BCCC) site = 0x27500;
+    else if (size == 0x6608C) site = 0x28380; /* DSP-1 TWL */
+    else if (size == 0x57628) site = 0x240C8; /* S-DD1 TWL */
+    else return false;
     for (unsigned i = 0; i < sizeof(stock) / sizeof(stock[0]); ++i)
-        if (read32(p + SITE + i * 4) != stock[i]) return false;
+        if (read32(p + site + i * 4) != stock[i]) return false;
     if (apply) {
-        write32(p + SITE, 0xE3A00000 | language); /* mov r0, #language */
-        write32(p + SITE + 4, 0xE12FFF1E);       /* bx lr */
+        write32(p + site, 0xE3A00000 | language); /* mov r0, #language */
+        write32(p + site + 4, 0xE12FFF1E);       /* bx lr */
     }
     return true;
 }
@@ -159,6 +165,16 @@ bool shim_tgds_game_settings_patch(void *arm9, size_t size, bool apply)
     enum { CAVE = 0x0AF0, SITE = 0x126AC, TITLE = 0x03001004 };
     unsigned char *p = arm9;
     size_t target;
+    /* The alternate builds already read Global and then the matching game
+     * section in reloadROM(). Validate that native path and leave it intact.
+     * The checked span includes title handling, GUI/reset/SRAM calls and every
+     * config-section lookup through the function's literal pool. */
+    if (p && (size == 0x666D4 || size == 0x6608C))
+        return crc32(p + 0x140A8, 0x298) ==
+            (size == 0x666D4 ? 0x991C0DC2u : 0x9A0491F6u);
+    if (p && (size == 0x57C78 || size == 0x57628))
+        return crc32(p + 0x10204, 0x2AC) ==
+            (size == 0x57C78 ? 0x53014971u : 0x20D4B562u);
     if (!p || size < 0x13574) return false;
     for (size_t i = CAVE; i < CAVE + 24; ++i) if (p[i]) return false;
     uint32_t global = read32(p + 0x13570);
@@ -211,7 +227,7 @@ bool shim_tgds_game_settings_patch(void *arm9, size_t size, bool apply)
     return true;
 }
 
-static uint32_t macro_crc32(const unsigned char *p, size_t n)
+static uint32_t crc32(const unsigned char *p, size_t n)
 {
     uint32_t crc = UINT32_MAX;
     while (n--) {
@@ -235,11 +251,17 @@ bool shim_tgds_macro_timer_patch(void *arm9, size_t size, bool apply)
     if (!p) return false;
     if (size == 0x5C328) { site = 0x4DE2C; expected_crc = 0xA91487DF; }
     else if (size == 0x5BCCC) { site = 0x4D50C; expected_crc = 0x76448CAF; }
+    else if (size == 0x666D4) { site = 0x16120; expected_crc = 0xED3292EA; }
+    else if (size == 0x6608C) { site = 0x16120; expected_crc = 0xD726FCDA; }
+    else if (size == 0x57C78) { site = 0x124D8; expected_crc = 0x397C4AF3; }
+    else if (size == 0x57628) { site = 0x124D8; expected_crc = 0x69187505; }
     else return false;
+    bool alternate = site == 0x16120 || site == 0x124D8;
+    size_t literal = alternate ? (site == 0x16120 ? 0x16380 : 0x12724) : site + 0x238;
     if (read32(p + site) != 0xCA000031 ||
-        read32(p + site + 0xCC) != 0xE3A05000 ||
-        read32(p + site + 0x238) != 359 ||
-        macro_crc32(p + site - 12, 0x100) != expected_crc)
+        read32(p + site + 0xCC) != (alternate ? 0xE3A04000u : 0xE3A05000u) ||
+        read32(p + literal) != 359 ||
+        crc32(p + site - 12, 0x100) != expected_crc)
         return false;
     if (apply) write32(p + site, 0xEA000031);
     return true;

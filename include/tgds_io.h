@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-/* Exact stock 0.6d TWL ARM9 image; checks both complete functions before edits.
+/* Stock stable/DSP-1/S-DD1 TWL ARM9; checks complete functions before edits.
  * Applies only when the loader has positively identified a PICO DLDI device.
  */
 bool shim_tgds_dspico_io(void *arm9, size_t size, bool apply);
