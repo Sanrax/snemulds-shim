@@ -40,6 +40,8 @@ The 0.6d zips contain emulator binaries in `release/arm7dldi-ntr` and `release/a
 
 SNEmulDS 0.6a can be found here: https://www.gamebrew.org/wiki/SNEmulDS
 
+An All-In-One download can be found [here](https://sanrax.github.io/flashcart-guides/assets/SNEmulDS_0.6a_0.6d_Stable_DSP1_SDD1.zip).
+
 Remember to rename the `.nds` and `.srl` binaries or edit the `.ini` as needed so that the shim finds the target emulator binary.
 
 ### Supported SNEmulDS Hashes
