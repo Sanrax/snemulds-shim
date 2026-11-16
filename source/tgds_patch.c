@@ -136,7 +136,7 @@ bool shim_tgds_twl_language_patch(void *arm9, size_t size, unsigned language, bo
     };
     unsigned char *p = arm9;
     if (!p || language > 7) return false;
-    if (size == 0x5BCCC) site = 0x27500;
+    if (size == 0x5BD64) site = 0x27598; /* Stable TWL */
     else if (size == 0x6608C) site = 0x28380; /* DSP-1 TWL */
     else if (size == 0x57628) site = 0x240C8; /* S-DD1 TWL */
     else return false;
@@ -175,7 +175,7 @@ bool shim_tgds_game_settings_patch(void *arm9, size_t size, bool apply)
     if (p && (size == 0x57C78 || size == 0x57628))
         return crc32(p + 0x10204, 0x2AC) ==
             (size == 0x57C78 ? 0x53014971u : 0x20D4B562u);
-    if (!p || size < 0x13574) return false;
+    if (!p || (size != 0x5C3C0 && size != 0x5BD64)) return false;
     for (size_t i = CAVE; i < CAVE + 24; ++i) if (p[i]) return false;
     uint32_t global = read32(p + 0x13570);
     if (global < 0x02000000 || global - 0x02000000 > size - 7 ||
@@ -199,9 +199,9 @@ bool shim_tgds_game_settings_patch(void *arm9, size_t size, bool apply)
         read32(p + 0x12D94) != 0xE92D4070 || /* config reader */
         global != read32(p + 0x131F8) || /* same "Global" in config reader */
         !branch_target(size, SITE, read32(p + SITE), &target) ||
-        target != 0x1E204 ||
+        target != 0x1E2A0 ||
         !branch_target(size, SITE + 4, read32(p + SITE + 4), &target) ||
-        target != 0x1AD20 ||
+        target != 0x1ADBC ||
         !branch_target(size, SITE + 8, read32(p + SITE + 8), &target) ||
         target != 0x12400 ||
         !branch_target(size, 0x13548, read32(p + 0x13548), &target) ||
@@ -219,7 +219,7 @@ bool shim_tgds_game_settings_patch(void *arm9, size_t size, bool apply)
                 ((0x12D94 - (CAVE + 16)) / 4)); /* readOptionsFromConfig */
         write32(p + CAVE + 12, 0xE8BD4001); /* pop {r0, lr} */
         write32(p + CAVE + 16, 0xEA000000 |
-                ((0x1E204 - (CAVE + 24)) / 4)); /* GUI_showROMInfos */
+                ((0x1E2A0 - (CAVE + 24)) / 4)); /* GUI_showROMInfos */
         write32(p + CAVE + 20, TITLE);       /* SNES base + 0x1004 */
         write32(p + SITE, 0xEB000000 |
                 (((CAVE - (SITE + 8)) / 4) & 0x00FFFFFF));
@@ -249,8 +249,8 @@ bool shim_tgds_macro_timer_patch(void *arm9, size_t size, bool apply)
     size_t site;
     uint32_t expected_crc;
     if (!p) return false;
-    if (size == 0x5C328) { site = 0x4DE2C; expected_crc = 0xA91487DF; }
-    else if (size == 0x5BCCC) { site = 0x4D50C; expected_crc = 0x76448CAF; }
+    if (size == 0x5C3C0) { site = 0x4DEC4; expected_crc = 0x0A9076BC; }
+    else if (size == 0x5BD64) { site = 0x4D5A4; expected_crc = 0xFBA83D7B; }
     else if (size == 0x666D4) { site = 0x16120; expected_crc = 0xED3292EA; }
     else if (size == 0x6608C) { site = 0x16120; expected_crc = 0xD726FCDA; }
     else if (size == 0x57C78) { site = 0x124D8; expected_crc = 0x397C4AF3; }
