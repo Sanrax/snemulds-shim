@@ -128,18 +128,14 @@ Validated upstream alternate SHA-256 hashes:
 
 ## Verification
 
-Build with `make`, then run `make test` and `python3 tests/verify_build.py`.
+Build with `make`.
 If BlocksDS is installed elsewhere, supply `BLOCKSDS=/path/to/core` to make.
 
-With Python Unicorn installed, run:
-
-```sh
-python3 tests/alternate_builds_emulation.py /path/to/SNEmulDS_dsp.nds /path/to/SNEmulDS_dsp.srl /path/to/SNEmulDS_sdd1.nds /path/to/SNEmulDS_sdd1.srl
-python3 tests/twl_input_emulation.py /path/to/SNEmulDS_dsp.srl
-python3 tests/twl_input_emulation.py /path/to/SNEmulDS_sdd1.srl
-python3 tests/handoff_emulation.py
-python3 tests/ntr_handoff_emulation.py
-```
+The host tests, mocks, build verification and ARM instruction models live on
+the separate `tests` branch, together with their matching shim sources.
+That branch retains `make test` and the verification commands in its
+`AGENTS.md` and this document. The `master` branch contains the shim's build
+sources and release tooling without the test suite.
 
 These are host and modeled instruction checks. No new console, real audio,
 touch timing or gameplay testing has been performed for v0.16.

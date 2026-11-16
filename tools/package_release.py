@@ -15,7 +15,7 @@ top_level = (
     'README.md', 'snemulds-shim.ini', 'snemulds-shim.nds',
 )
 source_dirs = ('bootloader', 'docs', 'include', 'patches', 'source',
-               'tests', 'third_party', 'tools')
+               'third_party', 'tools')
 files = [root / name for name in top_level]
 for directory in source_dirs:
     files.extend(p for p in (root / directory).rglob('*') if p.is_file()

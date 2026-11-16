@@ -19,7 +19,8 @@ static void write32(unsigned char *p, uint32_t word)
     for (unsigned byte = 0; byte < 4; ++byte) p[byte] = word >> (byte * 8);
 }
 
-/* Position-independent ARM code. See tests/dspico_io_reference.s.
+/* Position-independent ARM code; see tests/dspico_io_reference.s on the
+ * tests branch.
  * Executes the original PICO DLDI on ARM9 with the original caller buffer;
  * saves/restores IME and EXMEMCNT and propagates the driver's result.
  * v0.6 masks IRQs only around Slot-1 ownership changes. The pinned emulator's
