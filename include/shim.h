@@ -47,7 +47,7 @@ size_t shim_pack(const char *const args[3], unsigned char out[SHIM_WIRE_CAP]);
 bool shim_dldi_relocate(void *data, size_t capacity, uint32_t target);
 size_t shim_tgds_dldi_patch_offset(const void *data, size_t size);
 const char *chainload_check(const char *filename, bool twl, bool patch_06d,
-                            bool skip_macro_timer);
+                            bool skip_macro_timer, ShimVariant variant);
 const char *chainload(const char *filename, const unsigned char *args, size_t length,
-                      bool twl, bool patch_06d, bool skip_macro_timer);
+                      bool twl, bool patch_06d, bool skip_macro_timer, ShimVariant variant);
 #endif
