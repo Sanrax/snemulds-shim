@@ -73,7 +73,7 @@ The **Auto ROM version** option in the launch menu enables automatic switching b
 The shim reads the ROM's cartridge header to choose the build. This method should work with all ROMs that contain a valid header.
 
 - DSP-1 games, such as Super Mario Kart, Pilotwings, and Super Air Diver, use the DSP-1 build.
-- Star Ocean and Street Fighter Alpha 2 / Street Fighter Zero 2 use the S-DD1 build.
+- Street Fighter Alpha 2 / Street Fighter Zero 2 use the S-DD1 build.
 - Other games and ROMs with unknown headers use stable.
 
 Switching happens when a ROM is passed to the shim. If you choose a different game inside SNEmulDS after it has been launched, the currently running build will be used.
