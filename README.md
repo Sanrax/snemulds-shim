@@ -46,8 +46,8 @@ Remember to rename the `.nds` and `.srl` binaries or edit the `.ini` as needed s
 
 | Binary | SHA-256 |
 | --- | --- |
-| `release/arm7dldi-ntr/SNEmulDS.nds` | `09bc43aad372da4984155d77c24a30a8c0a8a668288aa834eeb0695f1359094b` |
-| `release/arm7dldi-twl/SNEmulDS.srl` | `f2817e29db1958af6af2957d0ac7ccfce01b5a57f78e522527d1d508c121b7a2` |
+| `release/arm7dldi-ntr/SNEmulDS.nds` | `77f82df3437eff94d35951c673523f2acd964d1a0400555bae58a55b4362a472` |
+| `release/arm7dldi-twl/SNEmulDS.srl` | `83e3e4cd3e76a88ca089248eb375580d75cdff567aa490397aaf8dd07fc6812c` |
 | `release/arm7dldi-ntr/SNEmulDS_dsp.nds` | `292b70d62bb4092aa94e3723e3352bf3f309cba406bb02c665c9a7faac3a62c4` |
 | `release/arm7dldi-twl/SNEmulDS_dsp.srl` | `36b84c717692ec4c5ae1388c545292de6ca43bff4b881df553d4bffb440c99c2` |
 | `release/arm7dldi-ntr/SNEmulDS_sdd1.nds` | `c4393f40ff41e51df95cd122819c3c9b0781c331bb0e73f08a91e3b235e3242a` |
